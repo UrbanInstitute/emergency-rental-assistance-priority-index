@@ -1,0 +1,262 @@
+---
+title: "Generate Final ERAP Index"
+format: 
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+editor: visual
+execute:
+  echo: false
+  eval: true
+  include: true
+  message: false
+  warning: false
+---
+
+## HEADER
+
+-   **Description**: This script compiles all of the more specialized scripts in the repository to generate the final index dataset comprising indicators, subindexes, and the total weighted index. It also returns z-scored and percentile versions of each variable. Note that this was originally an executable script and has been converted to a .qmd for ease of editing and reviewing.
+-   **Original Author**: Will Curran-Groome
+-   **Date of Creation**: 04/28/2023
+
+```{r dependencies}
+## libraries
+library(tidycensus)
+library(sf)
+library(readxl)
+library(tidycensus)
+library(tigris)
+library(here)
+library(tidyverse)
+library(janitor)
+library(skimr)
+options(scipen = 999999)
+options(tigris_use_cache = F)
+
+## external scripts
+source(here("scripts", "list_census_index_vars.R"))
+source(here("scripts", "get_census_index_vars.R"))
+source(here("scripts", "get_chas_index_vars.R"))
+source(here("scripts", "impute_2010_2020_tracts_areal.R"))
+source(here("scripts", "generate_unweighted_indicators.R"))
+source(here("scripts", "get_wqs_scores.R"))
+
+## create needed directories
+create_folder = function (path) {
+  if (!dir.exists(path)) { dir.create(path) }
+}
+create_folder(here("data", "raw-data"))
+create_folder(here("data", "intermediate-data"))
+create_folder(here("data", "final-data"))
+```
+
+```{r parameters}
+outcome_year = "2018"         # the year for which to pull outcome (evictions) data
+census_year = "2021"          # the year for which to pull Census data
+chas_year = NA                # the year for which to pull CHAS data
+read_cache_all = T            # read data from the local cache if TRUE
+write_cache_all = T           # write data to the local cache if TRUE
+read_cache_census = NA        # dataset specific option; defaults to read_cache_all
+write_cache_census = NA       # dataset specific option; defaults to write_cache_all
+read_cache_pba = NA           # dataset specific option; defaults to read_cache_all
+write_cache_pba = NA          # dataset specific option; defaults to write_cache_all
+read_cache_chas = NA          # dataset specific option; defaults to read_cache_all
+write_cache_chas = NA         # dataset specific option; defaults to write_cache_all
+states = "default"            # 50 states and DC by default; optionally specify specific states
+geography = "tract"           # beta functionality. the geography for the index. "zcta" and "county" are alternate options.
+populated_geography_filter = T           # filter out geographies without any residents if TRUE
+extremely_lowincome_renter_filter = T    # filter out geographies without any extremely low-income renters if TRUE
+include_geometries = T                   # include an {sf}-based geometry column if TRUE
+include_moe = F                           # include margin of error variables from Census if TRUE
+
+# INPUTS:
+#   (parameters defined above.)
+#   
+# OUTPUTS:
+#   A dataframe comprising the final index indicators, subindexes, and the total 
+#   weighted index. It also returns z-scored and percentile versions of each variable.
+```
+
+
+```{r index component data and modeling}
+## compile all indicator data
+unweighted_indicators = generate_unweighted_indicators( 
+  census_year = census_year,
+  chas_year = chas_year,   
+  read_cache_all = read_cache_all,
+  write_cache_all = write_cache_all,    
+  read_cache_census = read_cache_census, 
+  write_cache_census = write_cache_census,
+  read_cache_chas = read_cache_chas,    
+  write_cache_chas = write_cache_chas,  
+  states = states,    
+  geography = geography,   
+  populated_geography_filter = populated_geography_filter,  
+  extremely_lowincome_renter_filter = extremely_lowincome_renter_filter,
+  include_moe = include_moe)
+
+## creating separate dataframes to pass to get_wqs_scores in the case that the indicator data is from a given year
+## and the data from which weights are calculated are from a different year
+outcome_index = unweighted_indicators
+
+if ( (outcome_year != census_year) ) {
+  print("generating a different outcome_index dataframe for calculating weights.")
+  outcome_index = generate_unweighted_indicators(
+    census_year = outcome_year,
+    states = states,    
+    geography = geography,   
+    populated_geography_filter = populated_geography_filter,  
+    extremely_lowincome_renter_filter = extremely_lowincome_renter_filter,    
+    include_moe = include_moe)}
+
+## WQS = weighted quantile sums, the method used to produce weights for each subindex.
+## this returns a four item list: weighted indicator (1) and outcome (2) indexes,
+## plus the wqs-derived weights produced from each input dataset (3 and 4), though
+## only the outcome_index-derived weights (item 4) are used to produce items 1 and 2.
+wqs_results = get_wqs_scores(
+   indicator_index = unweighted_indicators, 
+   outcome_index = outcome_index,
+   indicator_year = census_year,
+   outcome_year = outcome_year)
+
+weighted_indicator_index = wqs_results[[1]] ## z-scored at the state level
+weighted_outcome_index = wqs_results[[2]] ## z-scored at the state level
+indicator_index_weights = wqs_results[[3]]
+outcome_index_weights = wqs_results[[4]]
+
+if (states == "default") { states = fips_codes %>% filter(!state %in% c("PR", "UM", "VI", "GU", "AS", "MP")) %>% pull(state) %>% unique() }
+
+if (include_geometries == T) {
+  
+  ## returns geometries and geoids
+  tracts_sf = map_dfr(states, ~ tigris::tracts(state = ., year = census_year) %>% select(geoid = GEOID))
+  
+  geoid_col = str_extract(string = colnames(weighted_indicator_index), pattern = regex("geoid", ignore_case = T)) %>% .[!is.na(.)]
+  geoid_col_outcome_index = str_extract(string = colnames(weighted_outcome_index), pattern = regex("geoid", ignore_case = T)) %>% .[!is.na(.)]
+  
+  weighted_indicator_index = weighted_indicator_index %>% 
+    rename(geoid = geoid_col) %>% 
+    right_join(tracts_sf, by = "geoid") %>% 
+    st_as_sf() 
+  
+  weighted_outcome_index = weighted_outcome_index %>% 
+    rename(geoid = geoid_col) %>% 
+    right_join(tracts_sf, by = "geoid") %>% 
+    st_as_sf() 
+  }
+```
+
+```{r final technical appendix datasets}
+final_indicator_index = weighted_indicator_index %>%  
+  mutate(
+    state_code = geoid %>% str_sub(1, 2),
+    county_code = geoid %>% str_sub(3, 5)) %>% 
+  rename_with(
+    .cols = matches("index"),
+      ~ .x %>% str_replace_all(c("_" = " ", "chars" = "characteristics")) %>% str_to_title %>%
+        str_replace("Zscore Percentile", "(Z-scored Percentile)")) %>% 
+  left_join( ## adding county names
+    fips_codes %>% select(-state, state_name_2 = state_name, `county_name` = county), 
+    by = c("state_code", "county_code")) %>%
+  mutate(
+    state_name = case_when(
+      is.na(state_name) ~ state_name_2,
+      T ~ state_name)) %>%
+  left_join(
+    unweighted_indicators %>% select(`Extremely Low-income Renters` = renter_lessthanequal_30hamfi, geoid),
+    by = "geoid") %>%
+  select(-matches("code"), -`Urban Rural Status`, -state_name_2) %>%
+  select(
+    geoid, 
+    matches("name"), 
+    matches("total.*percentile"), 
+    matches("index.*percentile"),
+    matches("evictions"), 
+    matches("Percentile"), 
+    matches("total"),
+    matches("index"),
+    everything())
+
+final_outcome_index = weighted_outcome_index %>% 
+  mutate(
+    state_code = geoid %>% str_sub(1, 2),
+    county_code = geoid %>% str_sub(3, 5)) %>% 
+  rename_with(
+    .cols = matches("index"),
+    ~ .x %>% str_replace_all(c("_" = " ", "chars" = "characteristics")) %>% str_to_title %>%
+      str_replace("Zscore Percentile", "(Z-scored Percentile)")) %>% 
+  left_join( ## adding county names
+    fips_codes %>% select(-state, state_name_2 = state_name, `county_name` = county), 
+    by = c("state_code", "county_code")) %>%
+  mutate(
+    state_name = case_when(
+      is.na(state_name) ~ state_name_2,
+      T ~ state_name)) %>%
+  left_join(
+    unweighted_indicators %>% select(`Extremely Low-income Renters` = renter_lessthanequal_30hamfi, geoid),
+    by = "geoid") %>%
+  select(-matches("code"), -`Urban Rural Status`, -state_name_2) %>%
+  select(
+    geoid, 
+    matches("name"), 
+    matches("total.*percentile"), 
+    matches("index.*percentile"),
+    matches("evictions"), 
+    matches("Percentile"), 
+    matches("total"),
+    matches("index"),
+    everything())
+```
+
+```{r final web feature datasets}
+## the dataset reflected in the web feature
+comms_index = final_indicator_index %>%
+  st_drop_geometry %>%
+  select(-matches("ex$|eviction")) %>%
+  rename_with(
+    .cols = c(-matches("Z-|index"), -geoid, -state_name, -county_name, -`Extremely Low-income Renters`),
+    ~ .x %>% paste("(Z-scored Percentile)")) %>%
+  select(
+    geoid,
+    state_name,
+    county_name,
+    matches("Z-scored Percentile"),
+    `Extremely Low-income Renters`) %>% ## used to shade tracts without any extremely low-income renters grey in online feature
+  mutate(across(where(is.numeric), ~ .x %>% round()))
+
+data_catalog_index = final_indicator_index %>%
+  st_drop_geometry %>%
+  select(
+    geoid,
+    state_name,
+    county_name,
+    matches("index.*z-score")
+  ) %>%
+  rename(
+    index_value = `Total Index (Z-scored Percentile)`,
+    housing_subindex_value = `Housing Subindex (Z-scored Percentile)`,
+    income_subindex_value = `Income Subindex (Z-scored Percentile)`,
+    hh_chars_value = `Household Characteristics Subindex (Z-scored Percentile)`,
+  ) %>%
+  left_join(
+    unweighted_indicators %>%
+      transmute(
+        geoid = geoid,
+        median_monthly_housing_coust = median_housing_cost,
+        percent_renter_occ_units = perc_sr,
+        percent_renter_occ_units_multi = perc_renter_morethanone_units_in_structure,
+        percent_cost_burdened_renters = perc_cb_under_35k,
+        percent_eli_renters = perc_renter_lessthanequal_30hamfi,
+        avg_renter_hh_size = avg_household_size_renters,
+        percent_black = perc_race_black_nonhispanic,
+        percent_asian = perc_race_asian_nonhispanic,
+        percent_latine = perc_race_hispanic_all,
+        percent_other = perc_race_americanindian_nonhispanic + perc_race_pacificislander_nonhispanic + perc_race_morethanone_nonhispanic),
+    by = "geoid")
+
+# data_catalog_index %>%
+#   write_csv(here("data", "final-data", data_catalog_index, ".csv")))
+
+# comms_index %>%
+#   write_csv(file = here("data", "final-data", "comms_index.csv"))
+```
