@@ -1,8 +1,10 @@
-# Updated Emergency Rental Assistance Priority (ERAP) Index
+# Emergency Rental Assistance Priority (ERAP) Index 2.0
 
-This repository contains the data and code necessary to generate the tract level Emergency Rental Assistance Priority Indexes that power this [interactive Urban feature](https://www.urban.org/features/where-prioritize-emergency-rental-assistance-keep-renters-their-homes). The final data can also be downloaded from the [project's Data Catalog page](https://datacatalog.urban.org/dataset/rental-assistance-priority-index). For additional details on the development of the Index, refer to the project's ***`Technical Report`***.
+This repository contains the data and code necessary to generate the census tract-level Emergency Rental Assistance Priority Index that powers this [interactive Urban feature](https://www.urban.org/data-tools/mapping-neighborhoods-highest-risk-housing-instability-and-homelessness). 
 
-The Emergency Rental Assistance Priority Index is composed of three subindices: the Housing Subindex, the Household Demographics Subindex, and the Income Subindex. Each of the subindices contain multiple indicators. The indicators and the corresponding data sources are listed below.
+The code for the [front-end interactive feature is available here](https://github.com/UrbanInstitute/mapping-neighborhoods-highest-risk-housing-instability-and-homelessness). The final data can be downloaded from the [project's Data Catalog page](https://datacatalog.urban.org/dataset/rental-assistance-priority-index-20). For additional details on the development of the Index, refer to the project's [Technical Report](https://www.urban.org/research/publication/emergency-rental-assistance-priority-index-version-2).
+
+The ERAP Index 2.0 is composed of three subindices: the Housing Subindex, the Household Demographics Subindex, and the Income Subindex. Each of the subindices contains multiple indicators; when combined, they produce an overarching Index score that reflects the tract-level need for emergency rental assistance. The indicators and the corresponding data sources are listed below.
 
 ## Indicators
 
@@ -31,22 +33,22 @@ The Emergency Rental Assistance Priority Index is composed of three subindices: 
 
 -   `generate_unweighted_indicators.R`: this compiles raw data from various sources into a single dataframe of indicators.
 
--   `list_census_index_vars.R`: this returns a character vector of American Community Survey variable names.
+-   `list_census_index_vars.R`: this returns a character vector of American Community Survey (ACS) variable names.
 
 -   `get_census_index_vars.R`: this downloads, formats, and calculates the indicators described above, (with the exception of share of extremely low-income renter households, which is derived from CHAS data described below) using data from the [American Community Survey](https://www.census.gov/programs-surveys/acs/data.html).
 
--   `get_eviction_vars.R`: this downloads, formats, and returns 2018 eviction filing counts by census tract provided by the [Evictions Lab](https://data-downloads.evictionlab.org/#estimating-eviction-prevalance-across-us/) at Princeton University. #JA: Can we link to ELab documentation and say which variables (i.e. just \# filings)?
+-   `get_eviction_vars.R`: this downloads, formats, and returns 2018 eviction filing counts by census tract provided by the [Evictions Lab](https://data-downloads.evictionlab.org/#estimating-eviction-prevalance-across-us/) at Princeton University. 
 
--   `get_chas_index_vars.R`: this downloads, formats, and returns the number of renters and the number of renters whose income is less than or equal to 30% of the HUD Area Median Family Income (HAMFI) for each census tract from HUD's [CHAS](https://www.huduser.gov/portal/datasets/cp.html) (Comprehensive Housing Affordability Strategy) dataset
+-   `get_chas_index_vars.R`: this downloads, formats, and returns the number of renters and the number of renters whose income is less than or equal to 30% of the HUD Area Median Family Income (HAMFI) for each census tract from HUD's [CHAS](https://www.huduser.gov/portal/datasets/cp.html) (Comprehensive Housing Affordability Strategy) dataset.
 
 -   `impute_2010_2020_tracts_areal.R`: this attributes data at the 2010-Census-tract level to the 2020-Census-tract level via area-based interpolation based on [data](https://www2.census.gov/geo/pdfs/maps-data/data/rel2020/tract/explanation_tab20_tract20_tract10.pdf) provided by the Census Bureau. Note that field names do not have formal definitions from Census. We provide descriptions of the fields used for imputation below:
 
-    -   GEOID_TRACT_20: the 2020 tract GEOID.
-    -   GEOID_TRACT_10: the 2010 tract GEOID.
-    -   AREALAND_TRACT_20: the area of the 2020 tract geography that is land (as opposed to water).
-    -   AREALAND_TRACT_10: the area of the 2010 tract geography that is land (as opposed to water).
-    -   AREALAND_PART: the land area of the 2020 tract geography that falls within the intersecting 2010 tract. alternately, the land area of the 2010 tract geography that falls within the intersecting 2020 tract.
-    -   perc_2010tractlandarea_in_2020tractlandarea: the land area of the intersection between a given 2010 tract and 2020 tract divided by the 2010 tract land area.
+    -   `GEOID_TRACT_20`: the 2020 tract GEOID.
+    -   `GEOID_TRACT_10`: the 2010 tract GEOID.
+    -   `AREALAND_TRACT_20`: the area of the 2020 tract geography that is land (as opposed to water).
+    -   `AREALAND_TRACT_10`: the area of the 2010 tract geography that is land (as opposed to water).
+    -   `AREALAND_PART`: the land area of the 2020 tract geography that falls within the intersecting 2010 tract. alternately, the land area of the 2010 tract geography that falls within the intersecting 2020 tract.
+    -   `perc_2010tractlandarea_in_2020tractlandarea`: the land area of the intersection between a given 2010 tract and 2020 tract divided by the 2010 tract land area.
 
 -   `get_wqs_scores.R`: this formats the index to include only our selected indicators, groups the indicators into their associated subindices, and calculates the weights of each subindex to maximize the correlation of the overall index score with evictions. This also calculates the z-score and percentile ranking for each of our indicators and each subindex.
 
@@ -58,4 +60,4 @@ The Emergency Rental Assistance Priority Index is composed of three subindices: 
 
 ## Questions?
 
-Reach out to [wcurrangroome\@urban.org](mailto:wcurrangroome@urban.org){.email}.
+Reach out to [wcurrangroome\@urban.org](mailto:wcurrangroome@urban.org).
