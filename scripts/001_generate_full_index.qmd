@@ -20,6 +20,7 @@ execute:
 -   **Date of Creation**: 04/28/2023
 
 ```{r dependencies}
+
 ## libraries
 library(tidycensus)
 library(sf)
@@ -77,7 +78,6 @@ include_moe = F                           # include margin of error variables fr
 #   weighted index. It also returns z-scored and percentile versions of each variable.
 ```
 
-
 ```{r index component data and modeling}
 ## compile all indicator data
 unweighted_indicators = generate_unweighted_indicators( 
@@ -100,7 +100,7 @@ unweighted_indicators = generate_unweighted_indicators(
 outcome_index = unweighted_indicators
 
 if ( (outcome_year != census_year) ) {
-  print("generating a different outcome_index dataframe for calculating weights.")
+  print("Generating a different outcome_index dataframe for calculating weights.")
   outcome_index = generate_unweighted_indicators(
     census_year = outcome_year,
     states = states,    
@@ -143,12 +143,16 @@ if (include_geometries == T) {
     rename(geoid = geoid_col) %>% 
     right_join(tracts_sf, by = "geoid") %>% 
     st_as_sf() 
-  }
+}
 ```
 
 ```{r final technical appendix datasets}
-final_indicator_index = weighted_indicator_index %>%  
+final_indicator_index = weighted_indicator_index %>%
   mutate(
+    across(
+      c(where(is.numeric), -matches("index|geometry"), -`Evictions per 1000 (2018)`), 
+      ~ .x %>% scale %>% as.vector %>% ntile(n = 100),
+      .names = "{.col} (Z-scored Percentile)"),
     state_code = geoid %>% str_sub(1, 2),
     county_code = geoid %>% str_sub(3, 5)) %>% 
   rename_with(
@@ -177,8 +181,12 @@ final_indicator_index = weighted_indicator_index %>%
     matches("index"),
     everything())
 
-final_outcome_index = weighted_outcome_index %>% 
+final_outcome_index = weighted_outcome_index %>%
   mutate(
+    across(
+      c(where(is.numeric), -matches("index|geometry"), -`Evictions per 1000 (2018)`), 
+      ~ .x %>% scale %>% as.vector %>% ntile(n = 100),
+      .names = "{.col} (Z-scored Percentile)"),
     state_code = geoid %>% str_sub(1, 2),
     county_code = geoid %>% str_sub(3, 5)) %>% 
   rename_with(
@@ -206,32 +214,30 @@ final_outcome_index = weighted_outcome_index %>%
     matches("total"),
     matches("index"),
     everything())
+
 ```
 
 ```{r final web feature datasets}
 ## the dataset reflected in the web feature
 comms_index = final_indicator_index %>%
   st_drop_geometry %>%
-  select(-matches("ex$|eviction")) %>%
-  rename_with(
-    .cols = c(-matches("Z-|index"), -geoid, -state_name, -county_name, -`Extremely Low-income Renters`),
-    ~ .x %>% paste("(Z-scored Percentile)")) %>%
   select(
-    geoid,
+    geoid, 
     state_name,
     county_name,
-    matches("Z-scored Percentile"),
-    `Extremely Low-income Renters`) %>% ## used to shade tracts without any extremely low-income renters grey in online feature
-  mutate(across(where(is.numeric), ~ .x %>% round()))
+    matches("Z-score"),
+    `Extremely Low-income Renters`) %>%
+  mutate(
+    across(where(is.numeric), ~ .x %>% round()))
 
+## the dataset available on Urban's data catalog
 data_catalog_index = final_indicator_index %>%
   st_drop_geometry %>%
   select(
     geoid,
     state_name,
     county_name,
-    matches("index.*z-score")
-  ) %>%
+    matches("index.*z-score")) %>%
   rename(
     index_value = `Total Index (Z-scored Percentile)`,
     housing_subindex_value = `Housing Subindex (Z-scored Percentile)`,

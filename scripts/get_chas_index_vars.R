@@ -64,9 +64,12 @@ get_chas_index_vars = function(
   # T8_est68 = all renter-occupied
   # T8_est69 = renter-occupied, less than or equal to 30% HAMFI
   
+  #replacing prefix in GEOIDs
+  geoid_prefix <- c("1400000US|14000US")
+  
   chas_income_stats <- chas_income_vars %>%
     select(old_geoid = geoid, renter_total = T8_est68, renter_lessthanequal_30hamfi = T8_est69) %>%
-    mutate(GEOID = str_replace_all(old_geoid, "14000US", "")) %>%
+    mutate(GEOID = str_replace_all(old_geoid, geoid_prefix, "")) %>%
     select(-old_geoid)
   
   ## if overwrite is TRUE, write the raw CSV (pre-processing) to the cache path, overwriting any existing file

@@ -54,6 +54,16 @@ generate_unweighted_indicators = function(
   current_month = Sys.Date() %>% lubridate::month()
   
   census_max_year = current_year - 1
+  
+  check_max_census_year <- function(code) {
+    tryCatch(code,
+             error = function(c){
+               census_max_year = current_year -2
+               return(census_max_year)
+             })}
+  
+  census_max_year = check_max_census_year(tidycensus::load_variables(year = current_year, dataset = "acs5"))
+
   chas_max_year = if ( current_month > 9 ) { chas_max_year = current_year - 3 } else { chas_max_year = current_year - 4 }
   
   ## These all technically date back to 2009, but omitting this year as an option
@@ -112,7 +122,7 @@ generate_unweighted_indicators = function(
   ####----Aligning Data across Different Geography Vintages----####
   
   ## this may need to be adjusted in future years if/when these datasets update to using 2020 geographies
-  if (census_year > 2019) {
+  if (census_year > 2019 & !(str_detect(chas_year, "202"))) {
     ## areal imputation of data from 2010 to 2020 census tracts (or other geographies, as appropriate)
     chas = chas %>% impute_2010_2020_tracts_areal(df_geoid = "GEOID")
     areal_imputation_flag = T
@@ -121,10 +131,10 @@ generate_unweighted_indicators = function(
   }
   
   indicators_df = acs %>% 
-    { if (census_year > 2019) rename(., GEOID_TRACT_20 = GEOID) else . } %>% ## adjusting column names depending on areal imputation
+    { if (census_year > 2019 & !(str_detect(chas_year, "202"))) rename(., GEOID_TRACT_20 = GEOID) else . } %>% ## adjusting column names depending on areal imputation
     left_join(chas) %>%
     mutate(perc_renter_lessthanequal_30hamfi = safe_divide(renter_lessthanequal_30hamfi, renter_total)) %>% #hamfi = hud area median family income
-    {if (census_year > 2019) rename(., geoid = GEOID_TRACT_20) else . } %>% ## adjusting column names depending on areal imputation
+    {if (census_year > 2019 & !(str_detect(chas_year, "202"))) rename(., geoid = GEOID_TRACT_20) else . } %>% ## adjusting column names depending on areal imputation
     rename(population_total = pba_population_denom)
   
   ## depending on the years used, the geographic id column might have differing names

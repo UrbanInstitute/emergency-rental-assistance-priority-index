@@ -1,0 +1,106 @@
+```{r}
+## libraries
+library(tidycensus)
+library(sf)
+library(readxl)
+library(tidycensus)
+library(tigris)
+library(here)
+library(tidyverse)
+library(janitor)
+library(skimr)
+```
+
+## Calculated comms index does not equal comms index used in feature
+```{r}
+## loading the index currently on Urban's web feature
+## renaming variables so that we can join this to the index calculated in the codebase
+## and compare variables that should be the same
+
+comms_2023_actual = read_csv(here("erap_2023_comms_actual.csv")) %>%
+  rename(
+    total_index_actual = `Total Index (Z-scored Percentile)`,
+    housing_subindex_actual = `Housing Subindex (Z-scored Percentile)`,
+    hh_chars_subindex_actual = `Household Characteristics Subindex (Z-scored Percentile)`,
+    income_subindex_actual = `Income Subindex (Z-scored Percentile)`,
+    percent_black_actual = `% Black (Z-scored Percentile)`)
+
+data_catalog_2023_actual = read_csv(here("erap_2023_data_catalog_actual.csv"))
+
+## when calculated using public-facing repo, 2021 census year
+# comms_index_2021_2018_public_repo = comms_index
+comms_index_2021_2018_public_repo %>%
+  select(geoid, total_index_calculated = `Total Index (Z-scored Percentile)`) %>%
+  left_join(comms_2023_actual %>% select(geoid, total_index_actual)) %>%
+  mutate(
+    index_difference = abs(total_index_actual- total_index_calculated),
+    state = str_sub(geoid, 1, 2)) %>%
+  #filter(index_difference > 5) #%>% ##312 tracts with index score differences greater than five
+  #filter(index_difference == 1) #%>% ##29885 tracts with index scores exactly the same, 31792 with differences of 1
+  #summarize(mean_difference = mean(index_difference, na.rm = TRUE), tract_count = n()) %>% ## mean difference of .99 overall
+  ggplot() +
+  geom_boxplot(aes(index_difference))
+```
+
+## Apart from the total index, it appears that all other values are the same
+```{r}
+comms_index_2021_2018_public_repo %>% 
+  select(
+    geoid, 
+    housing_subindex_calculated = `Housing Subindex (Z-scored Percentile)`, 
+    hh_chars_subindex_calculated = `Household Characteristics Subindex (Z-scored Percentile)`,
+    income_subindex_calculated = `Income Subindex (Z-scored Percentile)`,
+    percent_black_calculated = `% Black (Z-scored Percentile)`) %>%
+  left_join(comms_2023_actual %>% select(
+    geoid, housing_subindex_actual, hh_chars_subindex_actual, income_subindex_actual, percent_black_actual)) %>%
+  filter((housing_subindex_calculated != housing_subindex_actual) | (percent_black_calculated != percent_black_actual))
+```
+
+## Where did the total index calculation differ? It's not clear...
+```{r}
+## using the final indicator index because it has the the raw subindex values
+## checking that eveything is the same:
+# final_indicator_index %>%
+#   select(geoid, matches("Z-scored")) %>%
+#   st_drop_geometry %>%
+#   left_join(comms_index_2021_2018_public_repo %>% 
+#   select(
+#     geoid, 
+#     total_index_calculated = `Total Index (Z-scored Percentile)`,
+#     housing_subindex_calculated = `Housing Subindex (Z-scored Percentile)`, 
+#     hh_chars_subindex_calculated = `Household Characteristics Subindex (Z-scored Percentile)`,
+#     income_subindex_calculated = `Income Subindex (Z-scored Percentile)`))
+
+final_indicator_index %>%
+  st_drop_geometry %>%
+  select(geoid, matches("index"), state_name) %>% 
+  mutate(
+    total_index_check = (`Housing Subindex` * outcome_index_weights[1]) + (`Income Subindex` * outcome_index_weights[2]) + (`Household Characteristics Subindex` * outcome_index_weights[3])) %>%
+    group_by(state_name) %>%
+    ## zscoring by state and transforming to percentiles
+    mutate(total_index_check_zscore_percentile = total_index_check %>% scale %>% ntile(n = 100)) %>% 
+    ungroup() %>%
+  select(geoid, matches("Total")) %>%
+  left_join(comms_2023_actual %>% select(geoid, total_index_actual))
+  # filter(total_index_check_zscore_percentile != `Total Index (Z-scored Percentile)`)
+```
+
+## Did the technical appendix analysis use a different version of the index?
+```{r, fig.height = 10, fig.width = 10}
+## using the outcome index (2018 indicators), correlations are the same as reported
+final_outcome_index %>%
+  st_drop_geometry %>%
+  select(matches("eviction|index")) %>%
+  na.omit() %>%
+  cor() %>%
+  ggcorrplot::ggcorrplot(type = "lower", lab = TRUE)
+
+## same is true for the indicator index (2021 indicators)
+final_indicator_index %>%
+  st_drop_geometry %>%
+  select(matches("eviction|index")) %>%
+  na.omit() %>%
+  cor() %>%
+  ggcorrplot::ggcorrplot(type = "lower", lab = TRUE)
+```
+

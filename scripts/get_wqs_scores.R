@@ -172,7 +172,7 @@ get_wqs_scores = function(
       `% Other`,
       `Urban Rural Status`,
       state_name)
-  
+
   unweighted_outcome_index = outcome_index %>% 
     left_join(census_regions %>% select(-state_abbreviation), by = "state_name") %>%
     { if (outcome_year > 2019) left_join(., ruca_2020geography, by = c("geoid" = "geoid_tract")) 
