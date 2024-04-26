@@ -23,19 +23,19 @@ source(here("scripts", "get_chas_index_vars.R"))
 source(here("scripts", "impute_2010_2020_tracts_areal.R"))
 
 generate_unweighted_indicators = function(
-    census_year = "2021",          # the year for which to pull Census data
+    census_year = NA,          # the year for which to pull Census data
     chas_year = NA,                # the year for which to pull CHAS data; when NA, pulls the most recent year available relative to the census_year
-    read_cache_all = T,            # read data from local cache if TRUE
-    write_cache_all = T,           # write data to local cache if TRUE
+    read_cache_all = NA,            # read data from local cache if TRUE
+    write_cache_all = NA,           # write data to local cache if TRUE
     read_cache_census = NA,        # dataset specific option; defaults to cache_all
     write_cache_census = NA,       # dataset specific option; defaults to overwrite_all
     read_cache_chas = NA,          # dataset specific option; defaults to cache_all
     write_cache_chas = NA,         # dataset specific option; defaults to overwrite_all
     states = "default",            # 50 states and DC by default; optionally, specify specific states
     geography = "tract",           # the geography at which to create the index
-    populated_geography_filter = T,           # filter out geographies without any residents if TRUE
-    extremely_lowincome_renter_filter = T,    # filter out geographies without any extremely low-income renters if TRUE
-    include_moe = F                           # include margin of error variables from Census if TRUE
+    populated_geography_filter = TRUE,           # filter out geographies without any residents if TRUE
+    extremely_lowincome_renter_filter = TRUE,    # filter out geographies without any extremely low-income renters if TRUE
+    include_moe = FALSE                           # include margin of error variables from Census if TRUE
 ) {
 
   # INPUTS:
@@ -47,6 +47,7 @@ generate_unweighted_indicators = function(
   message(paste0("The cache_all parameter has been set to ", read_cache_all %>% as.character, ". When read_cache_all is set to TRUE, all primary data inputs are read from a locally-stored copy of the
                  data, meaning that any edits to the data generation scripts will not be reflected in the data returned from this function. To ensure you have a current version of the data,
                  set read_cache_all to FALSE (though this takes much longer)."))
+
 
   ####----Establishing Default Values----####
   # Validating and setting values for function arguments
@@ -89,6 +90,9 @@ generate_unweighted_indicators = function(
     chas_year = paste0( (census_year - 6) %>% as.character, "thru", (census_year - 2) %>% as.character ) 
   } else if ( is.na(chas_year) ) {
     chas_year = paste0( (census_year - 4) %>% as.character, "thru", census_year %>% as.character )}
+  
+  print(paste0("The Census data year is: ", census_year %>% as.character))
+  print(paste0("The CHAS data year is: ", chas_year %>% as.character))
   
   ####----Reading in Raw Source Data----####
   

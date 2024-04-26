@@ -19,9 +19,9 @@ library(tidyverse)
 library(here)
 
 get_chas_index_vars = function(
-    chas_year = "2015thru2019",  # the string corresponding to the range of years of CHAS data
-    read_cache = T, # read a copy of the data from the local cache if TRUE
-    write_cache = T) { #write a copy of the data to the local cache if TRUE
+    chas_year = NA,  # the string corresponding to the range of years of CHAS data
+    read_cache = FALSE, # read a copy of the data from the local cache if TRUE
+    write_cache = FALSE) { #write a copy of the data to the local cache if TRUE
   
   # INPUTS:
   #   (parameters defined above.)
@@ -29,8 +29,7 @@ get_chas_index_vars = function(
   # OUTPUTS:
   #   A dataframe comprising three variables: GEOID, renter_total, and renter_lessthanequal_30hamfi.
   #   Note that these data are in 2010-vintage tract geographies as of 04/28/2023.
-  
-  ## this corresponds to the datasets for tracts
+  #   This corresponds to the dataset for ACS data.
   chas_geography = "-140-"
   
   chas_geography_simple = chas_geography %>% str_remove_all("-")
@@ -38,6 +37,8 @@ get_chas_index_vars = function(
   
   ## default path for reading/writing locally saved dataset
   cache_path = here("data", "intermediate-data", paste0("chas_", chas_geography, "_", chas_year, ".csv"))
+  
+  print(paste0("The CHAS year is: ", chas_year %>% as.character()))
   
   ## if either the cache parameter is FALSE or there's no file at the cache path
   if ( read_cache == F | !file.exists(cache_path) ) {
@@ -71,7 +72,7 @@ get_chas_index_vars = function(
     select(old_geoid = geoid, renter_total = T8_est68, renter_lessthanequal_30hamfi = T8_est69) %>%
     mutate(GEOID = str_replace_all(old_geoid, geoid_prefix, "")) %>%
     select(-old_geoid)
-  
+ 
   ## if overwrite is TRUE, write the raw CSV (pre-processing) to the cache path, overwriting any existing file
   if (write_cache == T) { write_csv(chas_income_vars, cache_path, append = F) }
  

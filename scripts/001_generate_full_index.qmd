@@ -55,8 +55,8 @@ create_folder(here("data", "final-data"))
 outcome_year = "2018"         # the year for which to pull outcome (evictions) data
 census_year = "2021"          # the year for which to pull Census data
 chas_year = NA                # the year for which to pull CHAS data
-read_cache_all = T            # read data from the local cache if TRUE
-write_cache_all = T           # write data to the local cache if TRUE
+read_cache_all = TRUE            # read data from the local cache if TRUE
+write_cache_all = TRUE           # write data to the local cache if TRUE
 read_cache_census = NA        # dataset specific option; defaults to read_cache_all
 write_cache_census = NA       # dataset specific option; defaults to write_cache_all
 read_cache_pba = NA           # dataset specific option; defaults to read_cache_all
@@ -65,10 +65,10 @@ read_cache_chas = NA          # dataset specific option; defaults to read_cache_
 write_cache_chas = NA         # dataset specific option; defaults to write_cache_all
 states = "default"            # 50 states and DC by default; optionally specify specific states
 geography = "tract"           # beta functionality. the geography for the index. "zcta" and "county" are alternate options.
-populated_geography_filter = T           # filter out geographies without any residents if TRUE
-extremely_lowincome_renter_filter = T    # filter out geographies without any extremely low-income renters if TRUE
-include_geometries = T                   # include an {sf}-based geometry column if TRUE
-include_moe = F                           # include margin of error variables from Census if TRUE
+populated_geography_filter = TRUE           # filter out geographies without any residents if TRUE
+extremely_lowincome_renter_filter = TRUE    # filter out geographies without any extremely low-income renters if TRUE
+include_geometries = TRUE                   # include an {sf}-based geometry column if TRUE
+include_moe = FALSE                           # include margin of error variables from Census if TRUE
 
 # INPUTS:
 #   (parameters defined above.)
@@ -103,10 +103,17 @@ if ( (outcome_year != census_year) ) {
   print("Generating a different outcome_index dataframe for calculating weights.")
   outcome_index = generate_unweighted_indicators(
     census_year = outcome_year,
+    chas_year = chas_year,   
+    read_cache_all = read_cache_all,
+    write_cache_all = write_cache_all,    
+    read_cache_census = read_cache_census, 
+    write_cache_census = write_cache_census,
+    read_cache_chas = read_cache_chas,    
+    write_cache_chas = write_cache_chas,  
     states = states,    
     geography = geography,   
     populated_geography_filter = populated_geography_filter,  
-    extremely_lowincome_renter_filter = extremely_lowincome_renter_filter,    
+    extremely_lowincome_renter_filter = extremely_lowincome_renter_filter,
     include_moe = include_moe)}
 
 ## WQS = weighted quantile sums, the method used to produce weights for each subindex.
@@ -151,7 +158,7 @@ final_indicator_index = weighted_indicator_index %>%
   mutate(
     across(
       c(where(is.numeric), -matches("index|geometry"), -`Evictions per 1000 (2018)`), 
-      ~ .x %>% scale %>% as.vector %>% ntile(n = 100),
+      ~ .x %>% ntile(n = 100),
       .names = "{.col} (Z-scored Percentile)"),
     state_code = geoid %>% str_sub(1, 2),
     county_code = geoid %>% str_sub(3, 5)) %>% 
@@ -185,7 +192,7 @@ final_outcome_index = weighted_outcome_index %>%
   mutate(
     across(
       c(where(is.numeric), -matches("index|geometry"), -`Evictions per 1000 (2018)`), 
-      ~ .x %>% scale %>% as.vector %>% ntile(n = 100),
+      ~ .x %>% ntile(n = 100),
       .names = "{.col} (Z-scored Percentile)"),
     state_code = geoid %>% str_sub(1, 2),
     county_code = geoid %>% str_sub(3, 5)) %>% 

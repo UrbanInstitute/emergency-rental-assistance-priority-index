@@ -9,14 +9,14 @@
 safe_divide = function(numerator, denominator) { if_else(denominator == 0, 0, numerator / denominator) }
 
 get_census_index_vars = function(
-    census_year = 2021, # the year for which to pull data
+    census_year, # the year for which to pull data
     census_geography = "tract", # the geography at which to pull data 
     census_variables, # a character vector of census variable names, typically those returned from the script list_census_index_vars.R
     census_dataset = "acs5", # the desired Census dataset
     census_states, # a list of states for which to pull data
-    include_moe = F, # include margins of error if TRUE
-    read_cache = T, # read a locally-cached version of the data if TRUE, else query the API
-    write_cache = T) { # write the data to a local path if TRUE
+    include_moe = FALSE, # include margins of error if TRUE
+    read_cache = FALSE, # read a locally-cached version of the data if TRUE, else query the API
+    write_cache = FALSE) { # write the data to a local path if TRUE
   
   # INPUTS:
   #   (parameters defined above.)

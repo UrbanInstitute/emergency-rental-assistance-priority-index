@@ -23,13 +23,13 @@ comms_2023_actual = read_csv(here("erap_2023_comms_actual.csv")) %>%
     housing_subindex_actual = `Housing Subindex (Z-scored Percentile)`,
     hh_chars_subindex_actual = `Household Characteristics Subindex (Z-scored Percentile)`,
     income_subindex_actual = `Income Subindex (Z-scored Percentile)`,
-    percent_black_actual = `% Black (Z-scored Percentile)`)
+    percent_black_actual = `% Black (Z-scored Percentile)`,
+    percent_eli_actual = `% Extremely low–income renters (Z-scored Percentile)`)
 
 data_catalog_2023_actual = read_csv(here("erap_2023_data_catalog_actual.csv"))
 
 ## when calculated using public-facing repo, 2021 census year
-# comms_index_2021_2018_public_repo = comms_index
-comms_index_2021_2018_public_repo %>%
+comms_index %>%
   select(geoid, total_index_calculated = `Total Index (Z-scored Percentile)`) %>%
   left_join(comms_2023_actual %>% select(geoid, total_index_actual)) %>%
   mutate(
@@ -37,23 +37,29 @@ comms_index_2021_2018_public_repo %>%
     state = str_sub(geoid, 1, 2)) %>%
   #filter(index_difference > 5) #%>% ##312 tracts with index score differences greater than five
   #filter(index_difference == 1) #%>% ##29885 tracts with index scores exactly the same, 31792 with differences of 1
-  #summarize(mean_difference = mean(index_difference, na.rm = TRUE), tract_count = n()) %>% ## mean difference of .99 overall
+  summarize(mean_difference = mean(index_difference, na.rm = TRUE), tract_count = n()) #%>% ## mean difference of .99 overall
   ggplot() +
   geom_boxplot(aes(index_difference))
 ```
 
 ## Apart from the total index, it appears that all other values are the same
 ```{r}
-comms_index_2021_2018_public_repo %>% 
+comms_index %>% 
   select(
     geoid, 
     housing_subindex_calculated = `Housing Subindex (Z-scored Percentile)`, 
     hh_chars_subindex_calculated = `Household Characteristics Subindex (Z-scored Percentile)`,
     income_subindex_calculated = `Income Subindex (Z-scored Percentile)`,
-    percent_black_calculated = `% Black (Z-scored Percentile)`) %>%
+    percent_black_calculated = `% Black (Z-scored Percentile)`,
+    percent_eli_calculated = `% Extremely low–income renters (Z-scored Percentile)`) %>%
   left_join(comms_2023_actual %>% select(
-    geoid, housing_subindex_actual, hh_chars_subindex_actual, income_subindex_actual, percent_black_actual)) %>%
-  filter((housing_subindex_calculated != housing_subindex_actual) | (percent_black_calculated != percent_black_actual))
+    geoid, housing_subindex_actual, hh_chars_subindex_actual, income_subindex_actual, percent_black_actual, percent_eli_actual)) %>%
+  filter(
+    housing_subindex_calculated != housing_subindex_actual | 
+    hh_chars_subindex_calculated != hh_chars_subindex_actual |  
+    income_subindex_calculated != income_subindex_actual |
+    percent_black_calculated != percent_black_actual | 
+    percent_eli_calculated != percent_eli_actual)
 ```
 
 ## Where did the total index calculation differ? It's not clear...
