@@ -29,7 +29,7 @@ comms_2023_actual = read_csv(here("erap_2023_comms_actual.csv")) %>%
 data_catalog_2023_actual = read_csv(here("erap_2023_data_catalog_actual.csv"))
 
 ## when calculated using updated public-facing repo, 2021 census year
-comms_index %>%
+comms_index_testing = comms_index %>%
   select(geoid, total_index_calculated = `Total Index (Z-scored Percentile)`) %>%
   left_join(comms_2023_actual %>% select(geoid, total_index_actual)) %>%
   mutate(
@@ -51,12 +51,48 @@ comms_index %>%
       total_index_calculated >= 50 ~ 5,
       total_index_calculated >= 0 ~ 6,
       TRUE ~ NA),
-    priority_bucket_change = if_else(priority_buckets_actual != priority_buckets_calculated, 1, 0)) %>%
-  filter(priority_bucket_change == 1, total_index_actual > 75, total_index_calculated > 75, abs(index_difference) >= 5)
-  #count(priority_bucket_change)
-  #filter(index_difference > 5) #%>% 
-  #filter(index_difference == 0) #%>% 
-  #summarize(mean_difference = mean(index_difference, na.rm = TRUE), tract_count = n()) %>% 
+    priority_bucket_change_flag = if_else(priority_buckets_actual != priority_buckets_calculated, 1, 0),
+    priority_bucket_difference = abs(priority_buckets_actual - priority_buckets_calculated)) 
+
+
+## 55% of tracts had a change
+comms_index_testing %>%
+  filter(!is.na(index_difference)) %>%
+  count(index_difference != 0) %>%
+  mutate(perc = prop.table(n)) 
+
+## mean difference of .75
+comms_index_testing %>%
+  summarize(mean_difference = mean(abs(index_difference), na.rm = TRUE)) 
+
+## tracts with a change in total index value of five or more: .3%
+comms_index_testing %>%
+  count(abs(index_difference) >= 5) %>%
+  mutate(perc = prop.table(n))
+
+## of these 
+comms_index_testing %>%
+  filter(abs(index_difference) >= 5) %>%
+  count() %>%
+  mutate(perc = prop.table(n))
+
+## 3% of tracts changed priority buckets
+comms_index_testing %>%
+  count(priority_bucket_change_flag) %>%
+  mutate(perc = prop.table(n)) 
+
+## all tracts that changed buckets changed a single bucket
+comms_index_testing %>%
+  count(priority_bucket_difference) %>%
+  mutate(perc = prop.table(n)) 
+
+## only 2% of tracts changed a bucket in one of the higher priority categories (and these changes were all to an adjacent bucket)
+comms_index_testing %>%
+  count(priority_bucket_change_flag == 1 & (total_index_actual >= 85 | total_index_calculated >= 85)) %>%
+  mutate(perc = prop.table(n))
+
+## the distribution of changes is normally distributed around zero
+comms_index_testing %>%
   ggplot() +
     #geom_boxplot(aes(index_difference))
     geom_histogram(aes(index_difference))
