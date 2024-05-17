@@ -28,18 +28,41 @@ comms_2023_actual = read_csv(here("erap_2023_comms_actual.csv")) %>%
 
 data_catalog_2023_actual = read_csv(here("erap_2023_data_catalog_actual.csv"))
 
-## when calculated using public-facing repo, 2021 census year
+## when calculated using updated public-facing repo, 2021 census year
 comms_index %>%
   select(geoid, total_index_calculated = `Total Index (Z-scored Percentile)`) %>%
   left_join(comms_2023_actual %>% select(geoid, total_index_actual)) %>%
   mutate(
-    index_difference = abs(total_index_actual- total_index_calculated),
-    state = str_sub(geoid, 1, 2)) %>%
-  #filter(index_difference > 5) #%>% ##312 tracts with index score differences greater than five
-  #filter(index_difference == 1) #%>% ##29885 tracts with index scores exactly the same, 31792 with differences of 1
-  summarize(mean_difference = mean(index_difference, na.rm = TRUE), tract_count = n()) #%>% ## mean difference of .99 overall
+    index_difference = (total_index_actual- total_index_calculated),
+    state = str_sub(geoid, 1, 2),
+    priority_buckets_actual = case_when(
+      total_index_actual >= 95 ~ 1,
+      total_index_actual >= 90 ~ 2,
+      total_index_actual >= 85 ~ 3,
+      total_index_actual >= 75 ~ 4,
+      total_index_actual >= 50 ~ 5,
+      total_index_actual >= 0 ~ 6,
+      TRUE ~ NA),
+    priority_buckets_calculated = case_when(
+      total_index_calculated >= 95 ~ 1,
+      total_index_calculated >= 90 ~ 2,
+      total_index_calculated >= 85 ~ 3,
+      total_index_calculated >= 75 ~ 4,
+      total_index_calculated >= 50 ~ 5,
+      total_index_calculated >= 0 ~ 6,
+      TRUE ~ NA),
+    priority_bucket_change = if_else(priority_buckets_actual != priority_buckets_calculated, 1, 0)) %>%
+  filter(priority_bucket_change == 1, total_index_actual > 75, total_index_calculated > 75, abs(index_difference) >= 5)
+  #count(priority_bucket_change)
+  #filter(index_difference > 5) #%>% 
+  #filter(index_difference == 0) #%>% 
+  #summarize(mean_difference = mean(index_difference, na.rm = TRUE), tract_count = n()) %>% 
   ggplot() +
-  geom_boxplot(aes(index_difference))
+    #geom_boxplot(aes(index_difference))
+    geom_histogram(aes(index_difference))
+```
+```{r}
+
 ```
 
 ## Apart from the total index, it appears that all other values are the same
