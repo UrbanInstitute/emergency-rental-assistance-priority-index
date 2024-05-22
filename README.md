@@ -58,6 +58,30 @@ The ERAP Index 2.0 is composed of three subindices: the Housing Subindex, the Ho
 
 -   When the `read_cache` parameter (used across multiple scripts) is set to TRUE, the function will first attempt to read a local copy of the data (if it exists) before pulling the data from a remote location in order to save time.
 
+## Rerunning the Index with Data from Different Years
+
+-   Whether you are updating the index with more current data or producing the index for a previous year, the following steps outline the process of producing the ERAP Index for different years:
+    -   Create a new branch on the public-facing repository (named, e.g., "[YEAR]-updates”)
+    -   In /scripts/001_generate_full_index.qmd
+        - Update the dataset years (for ACS and CHAS data) in the second chunk (named parameters)
+        - Ensure the cacheing parameters are set such that no data are read from the cache (read_cache_all = FALSE) and all data are written to the cache (write_cache_all = TRUE)
+        - Run all chunks
+    -   The updated datasets will be cached in a local directory within the repository. Read these datasets (the ACS and CHAS data) in and check for, at a minimum, the following:
+        - Records accurately join to 2020-vintage census tracts or whatever vintage is the most current for your data
+        - There is limited or no missingness in fields of interest
+        - For ACS data, ensure that variable names or construction have not changed over time; variable alignment can be checked using: https://www2.census.gov/data/api-documentation/2022-5yr-api-changes.csv (or the equivalent for the given year)
+    -   Re-run the correlations between all index indicators and the evictions data (2018 vintage, as of writing in 2024); correlations should be fairly similar (if not, take pause)
+    -   Quality-check the final outputted datasets
+        - Run skimr::skim() and look at minima and maxima values for all variables, as well as rates of missingness (which should be zero or very low for all variables)
+        - Check distributions of any z-scored percentiles, should be a flat distribution from 1-100
+        - Check that the number of records in each dataset is as anticipated (1 record per 2020-vintage tracts, roughly)
+-   Potential errors/issues when updating the ERAP Index with different years
+    -   The `generate_unweighted_indicators.R` script may try to call for ACS or CHAS years that are unavailable. Double check that the set parameters for `census_year` and `chas_year` are years for which each respective source has data available
+    -   CHAS data and ACS data across different years may use differing prefixes for each census tracts `GEOID`, this may cause errors when joining the two dataset together. Ensure that the different `GEOID` prefixes (i.e. "14000US" vs "14000000US") are accounted for in the `generate_unweighted_indicators.R` and removed appropriately before joining.
+    -   With the updated 2016-2020 CHAS data, the areal imputation from 2010 census tract vintages to 2020 tract vintages is no longer needed as now both the ACS and CHAS using 2020 vintages
+        - Ensure that the impute_2010_2020_tracts_areal() script is not being run on either dataset, unless you are intentionally running the scripts with pre-2020 data
+    -    The `gWQS` package may change the weighting of each index based on which version of the package is installed — note that lockfile is the source of truth for exact reproducibility
+
 ## Questions?
 
 Reach out to [wcurrangroome\@urban.org](mailto:wcurrangroome@urban.org).
