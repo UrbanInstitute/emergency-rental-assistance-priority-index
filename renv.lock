@@ -2624,13 +2624,8 @@
     },
     "terra": {
       "Package": "terra",
-      "Version": "1.7-71",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "89c24bf35c961e047df79dde2eb69224",
-      "Requirements": [
-        "Rcpp"
-      ]
+      "Version": "1.7-78",
+      "Source": "Repository"
     },
     "testit": {
       "Package": "testit",

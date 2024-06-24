@@ -25,12 +25,6 @@ source(here("scripts", "impute_2010_2020_tracts_areal.R"))
 generate_unweighted_indicators = function(
     census_year = NA,          # the year for which to pull Census data
     chas_year = NA,                # the year for which to pull CHAS data; when NA, pulls the most recent year available relative to the census_year
-    read_cache_all = NA,            # read data from local cache if TRUE
-    write_cache_all = NA,           # write data to local cache if TRUE
-    read_cache_census = NA,        # dataset specific option; defaults to cache_all
-    write_cache_census = NA,       # dataset specific option; defaults to overwrite_all
-    read_cache_chas = NA,          # dataset specific option; defaults to cache_all
-    write_cache_chas = NA,         # dataset specific option; defaults to overwrite_all
     states = "default",            # 50 states and DC by default; optionally, specify specific states
     geography = "tract",           # the geography at which to create the index
     populated_geography_filter = TRUE,           # filter out geographies without any residents if TRUE
@@ -44,11 +38,6 @@ generate_unweighted_indicators = function(
   # OUTPUTS:
   #   A dataframe comprising the final index indicators.
   
-  message(paste0("The cache_all parameter has been set to ", read_cache_all %>% as.character, ". When read_cache_all is set to TRUE, all primary data inputs are read from a locally-stored copy of the
-                 data, meaning that any edits to the data generation scripts will not be reflected in the data returned from this function. To ensure you have a current version of the data,
-                 set read_cache_all to FALSE (though this takes much longer)."))
-
-
   ####----Establishing Default Values----####
   # Validating and setting values for function arguments
   current_year = Sys.Date() %>% lubridate::year()
@@ -75,12 +64,6 @@ generate_unweighted_indicators = function(
   census_year = census_year %>% as.numeric
   chas_year = chas_year %>% as.numeric
   
-  ## if cache arguments are NA, apply the read/write_cache_all value to each dataset
-  if (is.na(read_cache_census)) { read_cache_census = read_cache_all }
-  if (is.na(write_cache_census)) { write_cache_census = write_cache_all }
-  if (is.na(read_cache_chas)) { read_cache_chas = read_cache_all }
-  if (is.na(write_cache_chas)) { write_cache_chas = write_cache_all }
-  
   ## either pass in a specified list of states or use the default set 
   ## NOTE: this script has only been tested with the 50 states and DC
   if (states == "default") { states = fips_codes %>% filter(!state %in% c("PR", "UM", "VI", "GU", "AS", "MP")) %>% pull(state) %>% unique() }
@@ -102,9 +85,7 @@ generate_unweighted_indicators = function(
     census_geography = geography, 
     census_variables = list_census_index_vars(),
     census_states = states,
-    include_moe = include_moe,
-    read_cache = read_cache_census,
-    write_cache = write_cache_census) %>% 
+    include_moe = include_moe) %>% 
     left_join(
       map_dfr(
         states,
@@ -118,10 +99,7 @@ generate_unweighted_indicators = function(
     mutate(population_density = safe_divide(pba_population_denom, land_area))
   
   ## Comprehensive Housing Affordability Strategy (CHAS) indicators
-  chas = get_chas_index_vars(
-    chas_year = chas_year,
-    read_cache = read_cache_chas,
-    write_cache = write_cache_chas)
+  chas = get_chas_index_vars(chas_year = chas_year)
   
   ####----Aligning Data across Different Geography Vintages----####
   

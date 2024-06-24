@@ -4,7 +4,6 @@ format:
   html:
     code-fold: true
     code-summary: "Show the code"
-editor: visual
 execute:
   echo: false
   eval: true
@@ -20,7 +19,6 @@ execute:
 -   **Date of Creation**: 04/28/2023
 
 ```{r dependencies}
-
 ## libraries
 library(tidycensus)
 library(sf)
@@ -55,14 +53,6 @@ create_folder(here("data", "final-data"))
 outcome_year = "2018"         # the year for which to pull outcome (evictions) data
 census_year = "2021"          # the year for which to pull Census data
 chas_year = NA                # the year for which to pull CHAS data
-read_cache_all = TRUE            # read data from the local cache if TRUE
-write_cache_all = TRUE           # write data to the local cache if TRUE
-read_cache_census = NA        # dataset specific option; defaults to read_cache_all
-write_cache_census = NA       # dataset specific option; defaults to write_cache_all
-read_cache_pba = NA           # dataset specific option; defaults to read_cache_all
-write_cache_pba = NA          # dataset specific option; defaults to write_cache_all
-read_cache_chas = NA          # dataset specific option; defaults to read_cache_all
-write_cache_chas = NA         # dataset specific option; defaults to write_cache_all
 states = "default"            # 50 states and DC by default; optionally specify specific states
 geography = "tract"           # beta functionality. the geography for the index. "zcta" and "county" are alternate options.
 populated_geography_filter = TRUE           # filter out geographies without any residents if TRUE
@@ -83,12 +73,6 @@ include_moe = FALSE                           # include margin of error variable
 unweighted_indicators = generate_unweighted_indicators( 
   census_year = census_year,
   chas_year = chas_year,   
-  read_cache_all = read_cache_all,
-  write_cache_all = write_cache_all,    
-  read_cache_census = read_cache_census, 
-  write_cache_census = write_cache_census,
-  read_cache_chas = read_cache_chas,    
-  write_cache_chas = write_cache_chas,  
   states = states,    
   geography = geography,   
   populated_geography_filter = populated_geography_filter,  
@@ -104,12 +88,6 @@ if ( (outcome_year != census_year) ) {
   outcome_index = generate_unweighted_indicators(
     census_year = outcome_year,
     chas_year = chas_year,   
-    read_cache_all = read_cache_all,
-    write_cache_all = write_cache_all,    
-    read_cache_census = read_cache_census, 
-    write_cache_census = write_cache_census,
-    read_cache_chas = read_cache_chas,    
-    write_cache_chas = write_cache_chas,  
     states = states,    
     geography = geography,   
     populated_geography_filter = populated_geography_filter,  
@@ -221,7 +199,6 @@ final_outcome_index = weighted_outcome_index %>%
     matches("total"),
     matches("index"),
     everything())
-
 ```
 
 ```{r final web feature datasets}
