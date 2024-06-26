@@ -133,7 +133,8 @@ generate_unweighted_indicators = function(
       median_housing_cost,
       renter_lessthanequal_30hamfi) %>%
     {if (populated_geography_filter == T) { filter(., !(is.na(population_total) | population_total == 0)) } else . } %>%
-    {if (extremely_lowincome_renter_filter == T) { filter(., renter_lessthanequal_30hamfi > 0) } else . }
+    {if (extremely_lowincome_renter_filter == T) { filter(., renter_lessthanequal_30hamfi > 0) } else . } %>%
+    arrange(geoid)
   
   return(unweighted_indicators)
 }
