@@ -116,7 +116,7 @@ get_wqs_scores = function(
         
   ####----Evictions----####
   ## this always pulls 2018 data, the most recent year available. these are in 2010 geographies. 
-  evictions_2010geography = get_eviction_vars(write_cache = T, read_cache = T)
+  evictions_2010geography = get_eviction_vars()
   evictions_2020geography = evictions_2010geography %>% impute_2010_2020_tracts_areal(df_geoid = "geoid")
 
   ####-----Data Prepped for Modeling----####
@@ -172,7 +172,7 @@ get_wqs_scores = function(
       `% Other`,
       `Urban Rural Status`,
       state_name)
-  
+
   unweighted_outcome_index = outcome_index %>% 
     left_join(census_regions %>% select(-state_abbreviation), by = "state_name") %>%
     { if (outcome_year > 2019) left_join(., ruca_2020geography, by = c("geoid" = "geoid_tract")) 

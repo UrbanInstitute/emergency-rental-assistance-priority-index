@@ -4,7 +4,6 @@ format:
   html:
     code-fold: true
     code-summary: "Show the code"
-editor: visual
 execute:
   echo: false
   eval: true
@@ -15,7 +14,7 @@ execute:
 
 ## HEADER
 
--   **Description**: This script compiles all of the more specialized scripts in the repository to generate the final index dataset comprising indicators, subindexes, and the total weighted index. It also returns z-scored and percentile versions of each variable. Note that this was originally an executable script and has been converted to a .qmd for ease of editing and reviewing.
+-   **Description**: This script compiles all of the more specialized scripts in the repository to generate the final index dataset comprising indicators, subindexes, and the total weighted index. It also returns z-scored and percentile versions of each variable. Note that this was originally an executable script and has been converted to a .qmd for ease of reviewing and updating.
 -   **Original Author**: Will Curran-Groome
 -   **Date of Creation**: 04/28/2023
 
@@ -54,20 +53,12 @@ create_folder(here("data", "final-data"))
 outcome_year = "2018"         # the year for which to pull outcome (evictions) data
 census_year = "2021"          # the year for which to pull Census data
 chas_year = NA                # the year for which to pull CHAS data
-read_cache_all = T            # read data from the local cache if TRUE
-write_cache_all = T           # write data to the local cache if TRUE
-read_cache_census = NA        # dataset specific option; defaults to read_cache_all
-write_cache_census = NA       # dataset specific option; defaults to write_cache_all
-read_cache_pba = NA           # dataset specific option; defaults to read_cache_all
-write_cache_pba = NA          # dataset specific option; defaults to write_cache_all
-read_cache_chas = NA          # dataset specific option; defaults to read_cache_all
-write_cache_chas = NA         # dataset specific option; defaults to write_cache_all
 states = "default"            # 50 states and DC by default; optionally specify specific states
 geography = "tract"           # beta functionality. the geography for the index. "zcta" and "county" are alternate options.
-populated_geography_filter = T           # filter out geographies without any residents if TRUE
-extremely_lowincome_renter_filter = T    # filter out geographies without any extremely low-income renters if TRUE
-include_geometries = T                   # include an {sf}-based geometry column if TRUE
-include_moe = F                           # include margin of error variables from Census if TRUE
+populated_geography_filter = TRUE           # filter out geographies without any residents if TRUE
+extremely_lowincome_renter_filter = TRUE    # filter out geographies without any extremely low-income renters if TRUE
+include_geometries = TRUE                   # include an {sf}-based geometry column if TRUE
+include_moe = FALSE                           # include margin of error variables from Census if TRUE
 
 # INPUTS:
 #   (parameters defined above.)
@@ -77,18 +68,11 @@ include_moe = F                           # include margin of error variables fr
 #   weighted index. It also returns z-scored and percentile versions of each variable.
 ```
 
-
 ```{r index component data and modeling}
 ## compile all indicator data
 unweighted_indicators = generate_unweighted_indicators( 
   census_year = census_year,
   chas_year = chas_year,   
-  read_cache_all = read_cache_all,
-  write_cache_all = write_cache_all,    
-  read_cache_census = read_cache_census, 
-  write_cache_census = write_cache_census,
-  read_cache_chas = read_cache_chas,    
-  write_cache_chas = write_cache_chas,  
   states = states,    
   geography = geography,   
   populated_geography_filter = populated_geography_filter,  
@@ -100,13 +84,14 @@ unweighted_indicators = generate_unweighted_indicators(
 outcome_index = unweighted_indicators
 
 if ( (outcome_year != census_year) ) {
-  print("generating a different outcome_index dataframe for calculating weights.")
+  print("Generating a different outcome_index dataframe for calculating weights.")
   outcome_index = generate_unweighted_indicators(
     census_year = outcome_year,
+    chas_year = chas_year,   
     states = states,    
     geography = geography,   
     populated_geography_filter = populated_geography_filter,  
-    extremely_lowincome_renter_filter = extremely_lowincome_renter_filter,    
+    extremely_lowincome_renter_filter = extremely_lowincome_renter_filter,
     include_moe = include_moe)}
 
 ## WQS = weighted quantile sums, the method used to produce weights for each subindex.
@@ -143,12 +128,16 @@ if (include_geometries == T) {
     rename(geoid = geoid_col) %>% 
     right_join(tracts_sf, by = "geoid") %>% 
     st_as_sf() 
-  }
+}
 ```
 
 ```{r final technical appendix datasets}
-final_indicator_index = weighted_indicator_index %>%  
+final_indicator_index = weighted_indicator_index %>%
   mutate(
+    across(
+      c(where(is.numeric), -matches("index|geometry"), -`Evictions per 1000 (2018)`), 
+      ~ .x %>% ntile(n = 100),
+      .names = "{.col} (Z-scored Percentile)"),
     state_code = geoid %>% str_sub(1, 2),
     county_code = geoid %>% str_sub(3, 5)) %>% 
   rename_with(
@@ -177,8 +166,12 @@ final_indicator_index = weighted_indicator_index %>%
     matches("index"),
     everything())
 
-final_outcome_index = weighted_outcome_index %>% 
+final_outcome_index = weighted_outcome_index %>%
   mutate(
+    across(
+      c(where(is.numeric), -matches("index|geometry"), -`Evictions per 1000 (2018)`), 
+      ~ .x %>% ntile(n = 100),
+      .names = "{.col} (Z-scored Percentile)"),
     state_code = geoid %>% str_sub(1, 2),
     county_code = geoid %>% str_sub(3, 5)) %>% 
   rename_with(
@@ -212,26 +205,23 @@ final_outcome_index = weighted_outcome_index %>%
 ## the dataset reflected in the web feature
 comms_index = final_indicator_index %>%
   st_drop_geometry %>%
-  select(-matches("ex$|eviction")) %>%
-  rename_with(
-    .cols = c(-matches("Z-|index"), -geoid, -state_name, -county_name, -`Extremely Low-income Renters`),
-    ~ .x %>% paste("(Z-scored Percentile)")) %>%
   select(
-    geoid,
+    geoid, 
     state_name,
     county_name,
-    matches("Z-scored Percentile"),
-    `Extremely Low-income Renters`) %>% ## used to shade tracts without any extremely low-income renters grey in online feature
-  mutate(across(where(is.numeric), ~ .x %>% round()))
+    matches("Z-score"),
+    `Extremely Low-income Renters`) %>%
+  mutate(
+    across(where(is.numeric), ~ .x %>% round()))
 
+## the dataset available on Urban's data catalog
 data_catalog_index = final_indicator_index %>%
   st_drop_geometry %>%
   select(
     geoid,
     state_name,
     county_name,
-    matches("index.*z-score")
-  ) %>%
+    matches("index.*z-score")) %>%
   rename(
     index_value = `Total Index (Z-scored Percentile)`,
     housing_subindex_value = `Housing Subindex (Z-scored Percentile)`,
@@ -254,9 +244,17 @@ data_catalog_index = final_indicator_index %>%
         percent_other = perc_race_americanindian_nonhispanic + perc_race_pacificislander_nonhispanic + perc_race_morethanone_nonhispanic),
     by = "geoid")
 
-# data_catalog_index %>%
-#   write_csv(here("data", "final-data", data_catalog_index, ".csv")))
+metadata = tibble::tibble(
+  census_year = census_year,
+  outcome_year = outcome_year,
+  indicator_index_weights = indicator_index_weights,
+  outcome_index_weights = outcome_index_weights)
 
-# comms_index %>%
-#   write_csv(file = here("data", "final-data", "comms_index.csv"))
+write_csv(metadata, file = here("data", "final-data", "metadata.csv"))
+
+data_catalog_index %>%
+  write_csv(here("data", "final-data", "data_catalog_index.csv"))
+
+comms_index %>%
+  write_csv(file = here("data", "final-data", "comms_index.csv"))
 ```
