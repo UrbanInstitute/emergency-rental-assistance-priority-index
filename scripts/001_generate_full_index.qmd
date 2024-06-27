@@ -250,11 +250,11 @@ metadata = tibble::tibble(
   indicator_index_weights = indicator_index_weights,
   outcome_index_weights = outcome_index_weights)
 
-write_csv(metadata, file = here("data", "final-data", "metadata.csv"))
+write_csv(metadata, file = here("data", "final-data", paste0("metadata_outcome_year_", outcome_year, "_census_year_", census_year,".csv")))
 
 data_catalog_index %>%
-  write_csv(here("data", "final-data", "data_catalog_index.csv"))
+  write_csv(here("data", "final-data", paste0("data_catalog_index_outcome_year_", outcome_year, "_census_year_", census_year, ".csv")))
 
 comms_index %>%
-  write_csv(file = here("data", "final-data", "comms_index.csv"))
+  write_csv(file = here("data", "final-data", paste0("comms_index_outcome_year_", outcome_year, "_census_year_", census_year, ".csv")))
 ```
