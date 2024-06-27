@@ -14,7 +14,7 @@ execute:
 
 ## HEADER
 
--   **Description**: This script compiles all of the more specialized scripts in the repository to generate the final index dataset comprising indicators, subindexes, and the total weighted index. It also returns z-scored and percentile versions of each variable. Note that this was originally an executable script and has been converted to a .qmd for ease of editing and reviewing.
+-   **Description**: This script compiles all of the more specialized scripts in the repository to generate the final index dataset comprising indicators, subindexes, and the total weighted index. It also returns z-scored and percentile versions of each variable. Note that this was originally an executable script and has been converted to a .qmd for ease of reviewing and updating.
 -   **Original Author**: Will Curran-Groome
 -   **Date of Creation**: 04/28/2023
 
@@ -244,9 +244,17 @@ data_catalog_index = final_indicator_index %>%
         percent_other = perc_race_americanindian_nonhispanic + perc_race_pacificislander_nonhispanic + perc_race_morethanone_nonhispanic),
     by = "geoid")
 
-# data_catalog_index %>%
-#   write_csv(here("data", "final-data", data_catalog_index, ".csv")))
+metadata = tibble::tibble(
+  census_year = census_year,
+  outcome_year = outcome_year,
+  indicator_index_weights = indicator_index_weights,
+  outcome_index_weights = outcome_index_weights)
 
-# comms_index %>%
-#   write_csv(file = here("data", "final-data", "comms_index.csv"))
+write_csv(metadata, file = here("data", "final-data", "metadata.csv"))
+
+data_catalog_index %>%
+  write_csv(here("data", "final-data", "data_catalog_index.csv"))
+
+comms_index %>%
+  write_csv(file = here("data", "final-data", "comms_index.csv"))
 ```

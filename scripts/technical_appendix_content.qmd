@@ -1,0 +1,378 @@
+---
+title: "ERAP Index Updates - Technical Appendix"
+format: 
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+execute:
+  echo: false
+  eval: true
+  include: true
+  message: false
+  warning: false
+date-format: short
+date: last-modified
+date-format: short
+---
+
+This file produces statistics and outputs that parallel those included in the
+[technical appendix for the index](https://www.urban.org/sites/default/files/2023-07/Emergency%20Rental%20Assistance%20Priority%20Index%20Version%202%20Technical%20Appendix.pdf). 
+Note that the technical appendix is not updated annually and reflects results from
+when the index was updated to version 2.0 in 2023. Depending on 
+the vintage of data used in the codebase, this file may produce different results
+as compared to the technical appendix.
+
+
+```{r libraries, eval = T}
+library(tidycensus)
+library(skimr)
+library(sf)
+library(readxl)
+library(testit)
+library(tigris)
+library(grid)
+library(gridExtra)
+library(ggcorrplot)
+library(ggridges)
+library(here)
+library(skimr)
+library(tmap)
+library(plotly)
+library(car)
+library(vip)
+library(ranger)
+library(sm)
+library(tidyverse)
+library(tidymodels)
+library(urbnthemes)
+library(gWQS)
+library(DescTools)
+library(ggrepel)
+
+options(
+  scipen = 999999,
+  tigris_use_cache = FALSE)
+sf_use_s2(F)
+
+## create a folder for outputs if it doesn't already exist
+create_folder(here("output"))
+```
+
+```{r generating index}
+## `final_indicator/outcome_index` are the objects created from running the file scripts/001_generate_full_index.qmd
+
+## corresponding to data vintages from census_year
+indicator_index_df = final_indicator_index %>% st_drop_geometry 
+indicator_index_sf = final_indicator_index
+
+## corresponding to data vintages from outcome_year
+outcome_index_df = final_outcome_index %>% st_drop_geometry 
+outcome_index_sf = final_outcome_index
+```
+
+# Figures
+
+### Histogram - Eviction Filing Rates
+```{r}
+set_urbn_defaults(style = "print")
+prepped_evictions = indicator_index_df %>%
+  select(`Evictions per 1000 (2018)`) %>%
+  pivot_longer(cols = everything(), names_to = "evictions")
+
+max_value_of_evictions = prepped_evictions %>%
+  group_by(evictions) %>%
+  summarize(
+    max_val = max(value, na.rm = TRUE) %>% round(digits = 0),
+    min_val = min(value, na.rm = TRUE) %>% round(digits = 0))
+
+eviction_histogram_winsorized = prepped_evictions %>%
+  filter(evictions == "Evictions per 1000 (2018)") %>%
+  ggplot(aes(x = value)) +
+    geom_histogram(color = "white", bins = 100) +
+    scale_x_continuous(breaks = scales::pretty_breaks(n = 7)) +
+    scale_y_continuous(labels = scales::comma_format()) +
+    labs(title = "", x = "Eviction Filing Rate per 1,000", y = "Number of Tracts")
+
+eviction_histogram_winsorized
+
+ggsave(plot = eviction_histogram_winsorized, filename = here("output", paste0("figure_a_1_histogram_winsorized_evictions.png")), units = "in", width = 6.5, height = 4.5, dpi = 1000)
+```
+
+#### Histograms - Indexes
+```{r, fig.height = 10, fig.width = 10}
+prepped_indices = outcome_index_df %>% 
+  select(matches("index")) %>% select(-matches("quantile")) %>%
+  pivot_longer(cols = everything(), names_to = "index") %>%
+  mutate(
+    index = index %>% str_replace_all(c("_" = " ", "quantile|perc" = "")) %>% str_to_title()) %>% 
+  filter(!str_detect(index, "Z-Scored"))
+
+max_value_of_index <- prepped_indices %>%
+  group_by(index) %>%
+  summarize(
+    max_val = max(value, na.rm = TRUE) %>% round(digits = 2),
+    min_val = min(value, na.rm = TRUE) %>% round(digits = 2))
+
+index_histograms <- 
+  prepped_indices %>%
+    ggplot(aes(x = value)) +
+      geom_histogram(color = "white", bins = 100) +
+      # Add min and max numbers as text
+      geom_text(
+        data = max_value_of_index,
+        aes(x = max_val, y = 200, label = max_val %>% scales::number(accuracy = 0.1)),
+        colour = palette_urbn_magenta[4], fontface = "bold", size = 3
+      ) +
+      geom_text(
+        data = max_value_of_index,
+        aes(x = min_val, y = 200, label = min_val %>% scales::number(accuracy = 0.1)),
+        colour = palette_urbn_magenta[4], fontface = "bold", size = 3
+      ) +
+      facet_wrap(~index, ncol = 2) +
+      scale_x_continuous(breaks = scales::pretty_breaks(n = 7)) +
+      scale_y_continuous(labels = scales::comma_format()) +
+      labs(title = "Index Distributions among all US Census Tracts", x = "Index value", y = "")
+
+index_histograms
+```
+
+#### Histogram - Total Index Scores, Top Quartile by Race Group 
+```{r, fig.height = 4.5, fig.width = 6.5}
+threshold = 89
+
+## using unweighted data corresponding to census_year
+perc_white_df <- outcome_index %>% 
+  mutate(`% White` = perc_race_white_nonhispanic) %>% 
+  select(geoid, `% White`) %>% 
+  mutate(across(matches("% White"), ~ .x %>% scale %>% ntile(n = 100), .names = "{.col} (Z-scored Percentile)")) %>% 
+  select(-`% White`)
+
+race_df <- left_join(outcome_index_df, perc_white_df, by = "geoid")
+
+binwidth = 10
+linewidth = 2
+
+race_decile_distributions = ggplot() +
+  geom_freqpoly(data = race_df %>% filter(`% Black (Z-scored Percentile)` > threshold), aes(`Total Index (Z-scored Percentile)`, color = "Black"), linewidth = 2, binwidth = binwidth) +
+  geom_freqpoly(data = race_df %>% filter(`% Asian (Z-scored Percentile)` > threshold), aes(`Total Index (Z-scored Percentile)`, color = "Asian"),  linewidth = 2, binwidth = binwidth) +
+  geom_freqpoly(data = race_df %>% filter(`% Hispanic (Z-scored Percentile)` > threshold), aes(`Total Index (Z-scored Percentile)`, color = "Latine"),linewidth = 2, binwidth = binwidth) +
+  geom_freqpoly(data = race_df %>% filter(`% Other (Z-scored Percentile)` > threshold), aes(`Total Index (Z-scored Percentile)`, color = "Indigenous, Pacific Islander, Multiracial"), linewidth = 2, binwidth = binwidth) +
+  geom_freqpoly(data = race_df %>% filter(`% White (Z-scored Percentile)` > threshold), aes(`Total Index (Z-scored Percentile)`, color = "White"),  linewidth = 2, binwidth = binwidth) +
+  scale_color_manual(values = c(
+    "Black" = palette_urbn_main[1] %>% as.character,
+    "Asian" = palette_urbn_main[2] %>% as.character,
+    "Latine" = palette_urbn_main[3] %>% as.character,
+    "Indigenous, Pacific Islander, Multiracial" = palette_urbn_main[4] %>% as.character,
+    "White" = palette_urbn_main[5] %>% as.character)) +
+  xlim(c(0, 100)) +
+  labs(x = "Total Index", y = "Number of Census Tracts")
+
+race_decile_distributions
+
+ggsave(filename = here("output", paste0("figure_2_race_decile_distributions.png")), plot = race_decile_distributions, width = 6.5, height = 4.5, units = "in", dpi = 1000)
+```
+
+
+### Correlation Plots
+```{r, fig.width = 12, fig.height = 12}
+## correlations reported in Table 1 of the technical appendix are based on these
+## (outcome) data
+correlation_df_outcomes = outcome_index_df %>%
+  select(
+    ## Housing
+    `Median housing cost` = `Median monthly housing cost`,
+    `% Renter-occupied units`, 
+     `% Renter multifamily` = `% Renter-occupied units in multi-unit structures`,
+     ## Household Characteristics
+    `% Hispanic`, 
+    `% Black`, 
+    `% Asian`,
+    `% Other`,
+    `Average renter HH size`,
+    ## Income
+    `% Cost-burdened renters` = `% Cost-burdened renter households`,
+    `% Extremely low–income renters`,
+    ## Evictions
+    `Evictions per 1000 (2018)`,
+    matches("Index.*Z-Scored")) 
+
+correlation_df_indicators = indicator_index_df %>%
+  select(
+    ## Housing
+    `Median housing cost` = `Median monthly housing cost`,
+    `% Renter-occupied units`, 
+     `% Renter multifamily` = `% Renter-occupied units in multi-unit structures`,
+     ## Household Characteristics
+    `% Hispanic`, 
+    `% Black`, 
+    `% Asian`,
+    `% Other`,
+    `Average renter HH size`,
+    ## Income
+    `% Cost-burdened renters` = `% Cost-burdened renter households`,
+    `% Extremely low–income renters`,
+    ## Evictions
+    `Evictions per 1000 (2018)`,
+    matches("Index.*Z-Scored")) 
+
+##using the outcomes (2018) index-based data
+ggcorrplot(
+  correlation_df_outcomes %>% 
+    na.omit %>% 
+    cor,
+  type = "lower",
+  lab = TRUE,
+  colors = c(palette_urbn_cyan[5], "white", palette_urbn_red[5]),
+  digits = 2,
+  lab_size = 3.25) +
+  theme_urbn_print(base_size = 10) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.95),
+    legend.key.width = unit(1, "cm")) +
+  labs(y = "", x = "", title = "Correlations between Index Indicators, Eviction Filing Rates, and the Total Index (2018 Data, 2018 Weights)")
+
+##using the indicator index-based data (2021)
+ggcorrplot(
+  correlation_df_indicators %>%
+    na.omit %>% 
+    cor,
+  type = "lower",
+  lab = TRUE,
+  colors = c(palette_urbn_cyan[5], "white", palette_urbn_red[5]),
+  digits = 2,
+  lab_size = 3.25) +
+  theme_urbn_print(base_size = 10) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95, vjust = 0.95),
+    legend.key.width = unit(1, "cm")) +
+  labs(y = "", x = "", title = "Correlations between Index Indicators, Eviction Filing Rates, and the Total Index (2021 Data, 2018 Weights)")
+```
+
+### State-level Index / Eviction Filing Rates Correlations
+```{r, fig.height = 8, fig.width = 6.5}
+set_urbn_defaults(style = "print")
+
+# Get tract populations
+states <- fips_codes %>% filter(!state %in% c("PR", "UM", "VI", "GU", "AS", "MP")) %>% pull(state) %>% unique()
+tract_pops <- map_dfr(
+  states, 
+  ~ get_acs(geography = 'tract', variables = 'B01003_001', state = .x))
+
+tract_scores_by_state <- 
+  left_join(
+    outcome_index_df,
+    tract_pops,
+    by = c('geoid'='GEOID')) %>%
+  left_join(
+    tibble(state.abb, state.name),
+    by = c('state_name' = 'state.name')) %>%
+  filter(!is.na(`Evictions per 1000 (2018)`)) %>%
+  select(geoid, state_name, state_abb = state.abb, population=estimate, `Evictions per 1000 (2018)`, `Total Index (Z-scored Percentile)`) %>%
+  group_by(state_name) %>%
+  mutate(state_pop_pct = population / sum(population)) %>%
+  ungroup()
+
+# Correlation between index and evictions at state level with tracts weighted by population
+set.seed(10)
+state_weighted_corrs <- tract_scores_by_state %>% 
+  group_by(state_name) %>%
+  summarize(
+    n = n(),
+    corr = wCorr::weightedCorr(x = `Evictions per 1000 (2018)`, y = `Total Index (Z-scored Percentile)`, weights = state_pop_pct, method = "Pearson")) %>%
+  mutate(
+    corr_strength = case_when(
+      corr > 0.6 ~ 'strong',
+      corr > 0.4 ~ 'moderate',
+      corr > 0 ~ 'weak',
+      TRUE ~ 'negative')) %>%
+  arrange(desc(corr)) %>%
+  cbind(height = runif(nrow(.), min = 0.99, max = 1.01)) %>%
+  filter(!is.na(state_name) & n > 2)
+
+overall_corr <- cor(outcome_index_df$`Total Index (Z-scored Percentile)`, outcome_index_df$`Evictions per 1000 (2018)`, use = 'complete.obs')
+overall_corr
+
+state_corr_plot = state_weighted_corrs %>% 
+  ggplot() +
+  geom_bar(aes(x = reorder(state_name, corr), y = corr), stat = "identity") +
+  coord_flip() +
+  labs(y = "Population-weighted Correlation", x = "State Name", fill = "") +
+  ylim(c(0,1))
+
+state_tract_plot = state_weighted_corrs %>%
+  ggplot() +
+  geom_bar(aes(x = reorder(state_name, corr), y = n), stat = "identity") +
+  coord_flip() +
+  labs(y = "Number of Tracts with Evictions Data", x = "") +
+  #theme(axis.text.y = element_blank()) +
+  ylim(c(0, 5000))
+
+state_corr_tract_grid = grid.arrange(state_corr_plot, state_tract_plot, nrow = 1)
+
+#31 rows, more than half of all states
+state_weighted_corrs %>%
+  filter(corr > .5) 
+
+## correlation of .38
+state_weighted_corrs %>%
+  filter(state_name == "California")
+
+## 11% of all tracts
+state_weighted_corrs %>%
+  select(state_name, n) %>%
+  mutate(percent = prop.table(n)) %>%
+  filter(state_name == "California")
+
+state_weighted_corrs %>%
+  summarise(
+    median = median(corr), #.53
+    mean = mean(corr)) #.53
+
+ggsave(plot = state_corr_tract_grid, filename = here("output", "figure_1_state_corr_tract_grid.png"), height = 8, width = 6.5, units = "in", dpi = 1000)
+```
+### Evictions Coverage Map
+```{r, fig.width = 9, fig.height = 9}
+urbnthemes::set_urbn_defaults(style = "map")
+state_evictions = left_join(
+    indicator_index_df,
+    tract_pops,
+    by = c('geoid'='GEOID')) %>%
+  left_join(
+    tibble(state.abb, state.name),
+    by = c('state_name' = 'state.name')) %>%
+  group_by(state_name) %>%
+  summarize(
+    tract_counts = n(),
+    eviction_tract_counts = sum(!is.na(`Evictions per 1000 (2018)`)),
+    coverage_percent = eviction_tract_counts / tract_counts) %>%
+  mutate(coverage_percent = (coverage_percent * 100) %>% round(digits = 0))
+  
+tract_coverage_map = tigris::states(cb = T, year = 2021) %>%
+  tigris::shift_geometry() %>%
+  left_join(state_evictions, by = c("NAME" = "state_name")) %>%
+  filter(!is.na(coverage_percent)) %>%
+  mutate(fontcolor = if_else(coverage_percent < 75, "white", "black")) %>%
+  ggplot(aes(fill = coverage_percent)) +
+    geom_sf() +
+    geom_sf_text(
+      aes(label = STUSPS, color = fontcolor), size = 2.5, fontface = "bold", show.legend = F) +
+    scale_color_manual(values = c("black", "white")) +
+    labs(fill = "Percent of Tracts with Evictions Data" %>% str_wrap(width = 25))
+
+tract_coverage_map
+
+ggsave(filename = here("output", "figure_a2_tract_coverage_map.png"), plot = tract_coverage_map, width = 9, height = 9, units = "in", dpi = 1000)
+
+state_evictions %>% 
+  summarize(
+    tracts = sum(tract_counts),
+    eviction_tracts = sum(eviction_tract_counts),
+    perc_coverage_us = eviction_tracts / tracts)
+
+state_evictions %>%
+  mutate(
+    percent_all_tracts = tract_counts / sum(tract_counts),
+    percent_eviction_tracts = eviction_tract_counts / sum(eviction_tract_counts),
+    across(matches("percent.*tracts"), ~ (.x * 100) %>% round(digits = 0)))
+```
+
