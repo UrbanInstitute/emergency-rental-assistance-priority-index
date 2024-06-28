@@ -29,7 +29,7 @@ The ERAP Index 2.0 is composed of three subindices: the Housing Subindex, the Ho
 
 ## renv
 
-This project uses `library(renv)` to handle package dependencies. `library(renv)` tracks package versions and sources and writes this metadata to a file called a "lock.file". To reproduce exactly the same results, it is critical that users have the appropriate package versions installed and loaded. We outline how to correctly use `library(renv)`--and troubleshoot potential issues–below:
+This project uses `library(renv)` to handle package dependencies. `library(renv)` tracks package versions and sources and writes this metadata to a file called a "lock file". To reproduce exactly the same results, it is critical that users have the appropriate package versions installed and loaded. We outline how to correctly use `library(renv)`--and troubleshoot potential issues–below:
 
 -   Clone the GitHub repository
 
@@ -43,9 +43,9 @@ This project uses `library(renv)` to handle package dependencies. `library(renv)
 
         -   One approach is to run `renv::restore(exclude = c("packages-that-produce-errors"))`, so long as `gWQS` is installed per the package version listed in the lock.file.
 
-        -   Another approach is to use the workflow below, again ensuring to omit `gWQS` from the list of packages to install / update:
+        -   Another approach is to use the workflow below, again ensuring to omit `gWQS` from the list of packages to install / update. NOTE: This approach does not take note of any package version differences so use with care!
 
-        `# Load the jsonlite and renv packages
+        ```# Load the jsonlite and renv packages
         library(jsonlite)
         library(renv)
 
@@ -62,7 +62,7 @@ This project uses `library(renv)` to handle package dependencies. `library(renv)
         packages_to_install <- setdiff(package_names, installed_packages)
 
         # Install the packages
-        renv::install(packages_to_install)`
+        renv::install(packages_to_install)
 
 ## Scripts
 
