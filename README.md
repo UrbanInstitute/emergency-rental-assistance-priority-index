@@ -45,27 +45,32 @@ This project uses `library(renv)` to handle package dependencies. `library(renv)
 
         -   Another approach is to use the workflow below, again ensuring to omit `gWQS` from the list of packages to install / update. NOTE: This approach does not take note of any package version differences so use with care!
 
-        \`\`\`# Load the jsonlite and renv packages library(jsonlite) library(renv)
+        ```
+        ## Load the jsonlite and renv packages 
+        
+        library(jsonlite) 
+        library(renv)
 
-        # Read the renv lock file
+        ## Read the renv lock file
 
-        lockfile \<- fromJSON("renv.lock")
+        lockfile <- fromJSON("renv.lock")
 
-        # Extract the package names
+        ## Extract the package names
 
-        package_names \<- names(lockfile\$Packages)
+        package_names <- names(lockfile$Packages)
 
-        # Get the names of already installed packages
+        ## Get the names of already installed packages
 
-        installed_packages \<- rownames(installed.packages())
+        installed_packages <- rownames(installed.packages())
 
-        # Find packages that aren't already installed
+        ## Find packages that aren't already installed
 
-        packages_to_install \<- setdiff(package_names, installed_packages)
+        packages_to_install <- setdiff(package_names, installed_packages)
 
-        # Install the packages
+        ## Install the packages
 
         renv::install(packages_to_install)
+        ```
 
 ## Scripts
 
