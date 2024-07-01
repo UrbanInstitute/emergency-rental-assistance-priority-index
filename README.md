@@ -45,23 +45,26 @@ This project uses `library(renv)` to handle package dependencies. `library(renv)
 
         -   Another approach is to use the workflow below, again ensuring to omit `gWQS` from the list of packages to install / update. NOTE: This approach does not take note of any package version differences so use with care!
 
-        ```# Load the jsonlite and renv packages
-        library(jsonlite)
-        library(renv)
+        \`\`\`# Load the jsonlite and renv packages library(jsonlite) library(renv)
 
         # Read the renv lock file
-        lockfile <- fromJSON("renv.lock")
+
+        lockfile \<- fromJSON("renv.lock")
 
         # Extract the package names
-        package_names <- names(lockfile$Packages)
+
+        package_names \<- names(lockfile\$Packages)
 
         # Get the names of already installed packages
-        installed_packages <- rownames(installed.packages())
+
+        installed_packages \<- rownames(installed.packages())
 
         # Find packages that aren't already installed
-        packages_to_install <- setdiff(package_names, installed_packages)
+
+        packages_to_install \<- setdiff(package_names, installed_packages)
 
         # Install the packages
+
         renv::install(packages_to_install)
 
 ## Scripts
@@ -109,6 +112,7 @@ This project uses `library(renv)` to handle package dependencies. `library(renv)
         -   Run `skimr::skim()` and look at minima and maxima for all variables, as well as rates of missingness (which should be zero or very low for all variables)
         -   Check distributions of any z-scored percentiles, should be a flat distribution from 1-100
         -   Check that the number of records in each dataset is as anticipated (1 record per 2020-vintage tract, roughly)
+    -   Once the above quality-checking procedures are complete, two people should each clone the repository anew and re-produce the results for both the current update year and the prior year, ensuring that their results are the same for the current update year and that their results align with the previous year's published results
 -   Potential errors/issues when updating the Index with different years:
     -   The `generate_unweighted_indicators.R` script may try to call for ACS or CHAS years that are unavailable. Double check that the set parameters for `census_year` and `chas_year` are years for which each respective source has data available
     -   CHAS data and ACS data across different years may use differing prefixes for each census tract's `GEOID`, this may cause errors when joining the two dataset together. Ensure that the different `GEOID` prefixes (i.e. "14000US" vs "14000000US") are accounted for in the `generate_unweighted_indicators.R` and removed appropriately before joining.
