@@ -125,6 +125,7 @@ This project uses `library(renv)` to handle package dependencies. `library(renv)
         -   Ensure that the impute_2010_2020_tracts_areal() script is not being run on either dataset, unless you are intentionally running the scripts with pre-2020 data
 -   `gWQS` package considerations include:
     -   The `gWQS` package may change the weighting of each index based on which version of the package is installed — note that lockfile is the source of truth for exact reproducibility
+    -   For future updates, should look into the repeated holdout technique for generating weights starting in version 3.0.5. This generates more stable mean values for estimation (and uncertainty bands)
 
 ## WQS Weights
 
