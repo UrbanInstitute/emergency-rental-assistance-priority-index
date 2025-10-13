@@ -130,7 +130,7 @@ get_wqs_scores = function(
       perc_evictions = (filings_2018 * 1000) / population_total,
       perc_evictions = if_else(population_total == 0, 0, perc_evictions),
       population = population_total,
-      `Evictions per 1000 (2018)` = DescTools::Winsorize(perc_evictions, minval = 0, na.rm = T), ## winsorizing; defaults to 95% quantile as upper threshold values
+      `Evictions per 1000 (2018)` = DescTools::Winsorize(perc_evictions, val = quantile(perc_evictions, probs = c(0, 0.95), na.rm = TRUE)), ## winsorizing; defaults to 95% quantile as upper threshold values
       `% Cost-burdened renter households` = perc_cb_under_35k,
       `% Black` = perc_race_black_nonhispanic,
       `% White` = perc_race_white_nonhispanic,
@@ -184,7 +184,7 @@ get_wqs_scores = function(
       perc_evictions = (filings_2018 * 1000) / population_total,
       perc_evictions = if_else(population_total == 0, 0, perc_evictions),
       population = population_total,
-      `Evictions per 1000 (2018)` = DescTools::Winsorize(perc_evictions, minval = 0, na.rm = T), ## winsorizing; defaults to 95% quantile as upper threshold values
+      `Evictions per 1000 (2018)` = DescTools::Winsorize(perc_evictions, val = quantile(perc_evictions, probs = c(0, 0.95), na.rm = TRUE)), ## winsorizing; defaults to 95% quantile as upper threshold values
       `% Cost-burdened renter households` = perc_cb_under_35k,
       `% Black` = perc_race_black_nonhispanic,
       `% White` = perc_race_white_nonhispanic,

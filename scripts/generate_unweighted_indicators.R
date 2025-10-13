@@ -62,7 +62,7 @@ generate_unweighted_indicators = function(
   census_years_available = c(2010:census_max_year)
   chas_years_available = c(2010:chas_max_year)
   census_year = census_year %>% as.numeric
-  chas_year = chas_year %>% as.numeric
+  #chas_year = chas_year %>% as.numeric
   
   ## either pass in a specified list of states or use the default set 
   ## NOTE: this script has only been tested with the 50 states and DC
