@@ -161,13 +161,21 @@ plot_list <- map(numeric_vars, function(var) {
 
 
 # export results
-write_csv(diff_summary, "2021_acs_differences_comparison.csv")
+write_csv(score_diff, "2021_acs_score_differences.csv")
 
 write_csv(missing_comparison, "2021_acs_missing_comparison.csv")
 
-write_csv(missing_comparison, "2021_acs_missing_comparison.csv")
+write_csv(missing_comparison_year, "new_old_missing_comparison.csv")
 
-write_csv(missing_comparison, "2021_acs_missing_comparison.csv")
+
+pdf("plots_output.pdf", width = 8, height = 6)  # Set PDF output file and dimensions
+
+for (plot in plot_list) {
+  print(plot)  # Print each plot to the PDF
+}
+
+dev.off() 
+
 
 
 ```
