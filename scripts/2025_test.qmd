@@ -15,7 +15,7 @@ execute:
 
 ## HEADER
 
--   **Description**: This script is used to compare the datafiles produced for the ERAP 3.0 update to those used in the 2.0 update. The code in this script assumes you have run through the 001_generate_full_index.qmd and those dfs are already loaded into the environment.
+-   **Description**: This script is used to compare the datafiles produced for the ERAP 3.0 update to those used in the 2.0 update.
 -   **Original Author**: Brendan Chen
 -   **Date of Creation**: 10/05/2025
 
@@ -36,7 +36,9 @@ options(tigris_use_cache = F)
 
 ```
 
-```{r load in 2.0 data}
+```{r load in data}
+
+## Loading in original 2.0 data, 2.0 rerun data, and 3.0 data
 
 data_catalog_index_old <- read_csv(here("data", "comparison-data", "data_catalog_index_nonspatial.csv")) %>% 
   select(-num_eli_renters)
@@ -55,7 +57,7 @@ data_catalog_2023_acs <- read_csv(here("data", "comparison-data", "data_catalog_
 
 ```{r}
 
-# --- Step 1: Merge by ID ---
+# Merge by geoid
 acs_2021_merged <- merge(
   data_catalog_index_old,
   data_catalog_2021_acs,
@@ -63,14 +65,14 @@ acs_2021_merged <- merge(
   suffixes = c("_old", "_new")
 )
 
-# --- Step 2: Compare each common variable and create flag columns ---
+# Compare each common variable and create flag columns
 # Find the columns (excluding ID) that exist in both data frames
 common_cols <- intersect(
   setdiff(names(data_catalog_index_old), "geoid"),
   setdiff(names(data_catalog_2021_acs), "geoid")
 )
 
-# Create flags only for columns present in BOTH data frames
+# Create flags for columns that are different
 for (col in common_cols) {
   old_col <- paste0(col, "_old")
   new_col <- paste0(col, "_new")
@@ -81,65 +83,34 @@ for (col in common_cols) {
   )
 }
 
-# --- Step 3: Optional summary of differences ---
-flag_cols <- grep("_flag$", names(acs_2021_merged), value = TRUE)
-acs_2021_merged$any_diff <- as.integer(rowSums(acs_2021_merged[flag_cols]) > 0)
+# total how many columns differ between the two dfs
+acs_2021_merged$any_diff <- as.integer(rowSums(acs_2021_merged %>% select(ends_with("flag"))) > 0)
 
-```
-
-```{r}
-
+# calculate what percentage of entries differ by variable
 diff_summary <- acs_2021_merged %>%
   summarise(across(ends_with("flag"), ~mean(.x, na.rm = TRUE)))
 
+# calculate the number of entries by the size of differences in index_value
 score_diff <- acs_2021_merged %>%
   mutate(index_diff = index_value_new - index_value_old) %>% 
   select(geoid, state_name_old, county_name_old, index_value_old, index_value_new, index_diff) %>% 
   filter(index_diff > 0) %>% 
   count(index_diff)
-  
-
-
-# Identify columns ending in "old" and "new"
-old_cols <- acs_2021_merged %>% select(ends_with("old")) %>% names()
-new_cols <- acs_2021_merged %>% select(ends_with("new")) %>% names()
-
-# Strip suffixes to get base variable names
-base_names_old <- str_remove(old_cols, "_old$")
-base_names_new <- str_remove(new_cols, "_new$")
-
-# Find common base names
-common_vars <- intersect(base_names_old, base_names_new)
-
-# Calculate missingness for old and new columns
-missing_old <- acs_2021_merged %>% 
-  summarise(across(all_of(paste0(common_vars, "_old")), ~mean(is.na(.)))) %>% 
-  pivot_longer(everything(), names_to = "variable", values_to = "missing_rate") %>% 
-  mutate(variable = str_remove(variable, "_old$"), type = "old")
-
-missing_new <- acs_2021_merged %>% 
-  summarise(across(all_of(paste0(common_vars, "_new")), ~mean(is.na(.)))) %>% 
-  pivot_longer(everything(), names_to = "variable", values_to = "missing_rate") %>% 
-  mutate(variable = str_remove(variable, "_new$"), type = "new")
-
-# Combine for comparison
-missing_comparison <- bind_rows(missing_old, missing_new) %>%
-  select(variable, type, missing_rate) %>%
-  pivot_wider(names_from = type, values_from = missing_rate)
-
-# View result
-print(missing_comparison)
-
-
 ```
 
 
 ```{r}
-# Assuming df1 and df2 are your two dataframes
+## comparing 2023 acs df to original 2021acs df
 
-# 1. Compare missingness
-missing_old <- data_catalog_index_old %>% summarise(across(everything(), ~mean(is.na(.)))) %>% pivot_longer(everything(), names_to = "variable", values_to = "missing_rate_old")
-missing_new <- data_catalog_2023_acs %>% summarise(across(everything(), ~mean(is.na(.)))) %>% pivot_longer(everything(), names_to = "variable", values_to = "missing_rate_new")
+
+# Compare missingness
+missing_old <- data_catalog_index_old %>% 
+  summarise(across(everything(), ~mean(is.na(.)))) %>% 
+  pivot_longer(everything(), names_to = "variable", values_to = "missing_rate_old")
+
+missing_new <- data_catalog_2023_acs %>% 
+  summarise(across(everything(), ~mean(is.na(.)))) %>% 
+  pivot_longer(everything(), names_to = "variable", values_to = "missing_rate_new")
 
 missing_comparison_year <- full_join(missing_old, missing_new, by = "variable")
 
