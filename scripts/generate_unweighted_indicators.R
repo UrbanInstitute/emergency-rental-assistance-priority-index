@@ -54,7 +54,7 @@ generate_unweighted_indicators = function(
   
   census_max_year = check_max_census_year(tidycensus::load_variables(year = current_year, dataset = "acs5"))
 
-  chas_max_year = if ( current_month > 9 ) { chas_max_year = current_year - 3 } else { chas_max_year = current_year - 4 }
+  chas_max_year = current_year - 4 
   
   ## These all technically date back to 2009, but omitting this year as an option
   ## for the time being due to issues with changing tract geometries across the 

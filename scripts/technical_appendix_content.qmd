@@ -36,8 +36,6 @@ library(ggcorrplot)
 library(ggridges)
 library(here)
 library(skimr)
-library(tmap)
-library(plotly)
 library(car)
 library(vip)
 library(ranger)
@@ -47,7 +45,6 @@ library(tidymodels)
 library(urbnthemes)
 library(gWQS)
 library(DescTools)
-library(ggrepel)
 
 options(
   scipen = 999999,
