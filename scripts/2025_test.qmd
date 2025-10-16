@@ -4,7 +4,6 @@ format:
   html:
     code-fold: true
     code-summary: "Show the code"
-editor: visual
 execute:
   echo: false
   eval: true
@@ -31,7 +30,7 @@ library(tidyverse)
 library(janitor)
 library(skimr)
 library(urbnthemes)
-options(scipen = 999999)
+options(scipen = 9999)
 options(tigris_use_cache = F)
 
 ```
@@ -98,7 +97,6 @@ score_diff <- acs_2021_merged %>%
   count(index_diff)
 ```
 
-
 ```{r}
 ## comparing 2023 acs df to original 2021acs df
 
@@ -107,6 +105,7 @@ score_diff <- acs_2021_merged %>%
 missing_old <- data_catalog_index_old %>% 
   summarise(across(everything(), ~mean(is.na(.)))) %>% 
   pivot_longer(everything(), names_to = "variable", values_to = "missing_rate_old")
+
 
 missing_new <- data_catalog_2023_acs %>% 
   summarise(across(everything(), ~mean(is.na(.)))) %>% 
@@ -146,10 +145,4 @@ for (plot in plot_list) {
 }
 
 dev.off() 
-
-
-
 ```
-
-
-

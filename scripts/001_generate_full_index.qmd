@@ -29,8 +29,8 @@ library(here)
 library(tidyverse)
 library(janitor)
 library(skimr)
-options(scipen = 999999)
-options(tigris_use_cache = F)
+options(scipen = 9999)
+options(tigris_use_cache = FALSE)
 
 ## external scripts
 source(here("scripts", "list_census_index_vars.R"))
@@ -51,7 +51,7 @@ create_folder(here("data", "final-data"))
 
 ```{r parameters}
 outcome_year = "2018"         # the year for which to pull outcome (evictions) data
-census_year = "2023"          # the year for which to pull Census data
+census_year = "2022"          # the year for which to pull Census data
 chas_year = NA                # the year for which to pull CHAS data
 states = "default"            # 50 states and DC by default; optionally specify specific states
 geography = "tract"           # beta functionality. the geography for the index. "zcta" and "county" are alternate options.
@@ -250,11 +250,11 @@ metadata = tibble::tibble(
   indicator_index_weights = indicator_index_weights,
   outcome_index_weights = outcome_index_weights)
 
-# write_csv(metadata, file = here("data", "final-data", paste0("metadata_outcome_year_", outcome_year, "_census_year_", census_year,".csv")))
-# 
-# data_catalog_index %>%
-#   write_csv(here("data", "final-data", paste0("data_catalog_index_outcome_year_", outcome_year, "_census_year_", census_year, ".csv")))
-# 
-# comms_index %>%
-#   write_csv(file = here("data", "final-data", paste0("comms_index_outcome_year_", outcome_year, "_census_year_", census_year, ".csv")))
+write_csv(metadata, file = here("data", "final-data", paste0("metadata_outcome_year_", outcome_year, "_census_year_", census_year,".csv")))
+
+data_catalog_index %>%
+  write_csv(here("data", "final-data", paste0("data_catalog_index_outcome_year_", outcome_year, "_census_year_", census_year, ".csv")))
+
+comms_index %>%
+  write_csv(file = here("data", "final-data", paste0("comms_index_outcome_year_", outcome_year, "_census_year_", census_year, ".csv")))
 ```
