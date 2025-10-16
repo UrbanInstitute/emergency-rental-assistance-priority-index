@@ -70,7 +70,7 @@ generate_unweighted_indicators = function(
   
   ## setting the years for each dataset in the case that the corresponding parameter is NA
   if ( is.na(chas_year) & (census_year > max(chas_years_available)) ) { 
-    chas_year = paste0( (census_year - 6) %>% as.character, "thru", (census_year - 2) %>% as.character ) 
+    chas_year = paste0( (chas_max_year - 4) %>% as.character, "thru", (chas_max_year) %>% as.character ) 
   } else if ( is.na(chas_year) ) {
     chas_year = paste0( (census_year - 4) %>% as.character, "thru", census_year %>% as.character )}
   
@@ -97,6 +97,7 @@ generate_unweighted_indicators = function(
         select(GEOID, land_area = ALAND), ## tract areas
       by = "GEOID") %>% 
     mutate(population_density = safe_divide(pba_population_denom, land_area))
+  
   
   ## Comprehensive Housing Affordability Strategy (CHAS) indicators
   chas = get_chas_index_vars(chas_year = chas_year)
