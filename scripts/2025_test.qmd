@@ -50,9 +50,53 @@ data_catalog_2023_acs <- read_csv(here("data", "comparison-data", "data_catalog_
   rename(hh_chars_subindex_value = hh_chars_value,
          median_monthly_housing_cost = median_monthly_housing_coust)
 
-
-
 ```
+
+```{r}
+## comparison of data across runs/computers/users
+
+data_catalog_2021_a = data_catalog_2021_acs
+
+data_catalog_2021_b = here::here("data", "final-data", "data_catalog_index_outcome_year_2018_census_year_2021.csv") %>%
+  read_csv()
+
+data_catalog_2022_a = file.path("C:", "Users", "wcurrangroome", "Box", "ERAP Update 2025", "Data Comparison", "data_catalog_index_outcome_year_2018_census_year_2022.csv") %>%
+  read_csv()
+
+data_catalog_2022_b = here::here("data", "final-data", "data_catalog_index_outcome_year_2018_census_year_2022.csv") %>%
+  read_csv()
+
+data_catalog_2023_a = file.path("C:", "Users", "wcurrangroome", "Box", "ERAP Update 2025", "Data Comparison", "data_catalog_index_outcome_year_2018_census_year_2023.csv") %>%
+  read_csv()
+
+data_catalog_2023_b = here::here("data", "final-data", "data_catalog_index_outcome_year_2018_census_year_2023.csv") %>%
+  read_csv()
+
+test_same_year_data = function(version1, version2) {
+  result = left_join(
+      version1 %>% rename_with(.cols = -c(geoid, state_name, county_name), .fn = ~ str_c(.x, "version1")),
+      version2 %>% rename_with(.cols = -c(geoid, state_name, county_name), .fn = ~ str_c(.x, "version2"))) %>%
+    pivot_longer(
+      cols = matches("version1$|version2$")) %>%
+    mutate(
+      version = str_extract(name, "(version1$|version2$)"),
+      name = str_remove(name, "(version1$|version2$)")) %>%
+    pivot_wider(
+      names_from = version,
+      values_from = value) %>%
+    filter(version1 != version2)
+  
+  if (nrow(result) != 0) warning("The datasets are not identical")
+  
+  return(result)
+}
+
+test_same_year_data(data_catalog_2023_a, data_catalog_2023_b)
+test_same_year_data(data_catalog_2022_a, data_catalog_2022_b)
+test_same_year_data(data_catalog_2021_a, data_catalog_2021_b)
+```
+
+
 
 ```{r}
 
@@ -99,8 +143,6 @@ score_diff <- acs_2021_merged %>%
 
 ```{r}
 ## comparing 2023 acs df to original 2021acs df
-
-
 # Compare missingness
 missing_old <- data_catalog_index_old %>% 
   summarise(across(everything(), ~mean(is.na(.)))) %>% 
@@ -116,6 +158,9 @@ missing_comparison_year <- full_join(missing_old, missing_new, by = "variable")
 # 2. Compare distributions for numeric variables
 numeric_vars <- data_catalog_index_old %>% select(where(is.numeric)) %>% names()
 
+data_catalog_index_old %>%
+  count(index_value, sort = TRUE)
+
 # Plot histograms side-by-side
 plot_list <- map(numeric_vars, function(var) {
   combined <- bind_rows(
@@ -124,8 +169,9 @@ plot_list <- map(numeric_vars, function(var) {
   )
   
   ggplot(combined, aes_string(x = var, fill = "source")) +
-    geom_histogram(alpha = 0.6, position = "identity", bins = 30) +
-    labs(title = paste("Distribution of", var), x = var, y = "Count")
+    geom_histogram(alpha = 0.6, position = "identity", bins = 100) +
+    labs(title = paste("Distribution of", var), x = var, y = "Count") +
+    facet_wrap(~ source)
 })
 
 
