@@ -100,7 +100,8 @@ generate_unweighted_indicators = function(
   
   
   ## Comprehensive Housing Affordability Strategy (CHAS) indicators
-  chas = get_chas_index_vars(chas_year = chas_year)
+  chas = get_chas_index_vars(chas_year = chas_year) %>% 
+    mutate(chas_years = chas_year)
   
   ####----Aligning Data across Different Geography Vintages----####
   
@@ -124,6 +125,7 @@ generate_unweighted_indicators = function(
   ## whatever it's called, we select the name of it here (to rename as geoid in the subsequent step)
   geoid_col = str_extract(string = colnames(indicators_df), pattern = regex("geoid", ignore_case = T)) %>% .[!is.na(.)]
 
+  
   unweighted_indicators = indicators_df %>%
     select(
       geoid = all_of(geoid_col), 
@@ -132,7 +134,8 @@ generate_unweighted_indicators = function(
       matches("^perc"),
       avg_household_size_renters,
       median_housing_cost,
-      renter_lessthanequal_30hamfi) %>%
+      renter_lessthanequal_30hamfi,
+      chas_years) %>%
     {if (populated_geography_filter == T) { filter(., !(is.na(population_total) | population_total == 0)) } else . } %>%
     {if (extremely_lowincome_renter_filter == T) { filter(., renter_lessthanequal_30hamfi > 0) } else . } %>%
     arrange(geoid)

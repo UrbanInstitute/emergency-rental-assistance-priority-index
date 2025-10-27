@@ -171,7 +171,8 @@ get_wqs_scores = function(
       `% Hispanic`,
       `% Other`,
       `Urban Rural Status`,
-      state_name)
+      state_name,
+      chas_years)
 
   unweighted_outcome_index = outcome_index %>% 
     left_join(census_regions %>% select(-state_abbreviation), by = "state_name") %>%
@@ -219,8 +220,9 @@ get_wqs_scores = function(
       `% Hispanic`,
       `% Other`,
       `Urban Rural Status`,
-      state_name) %>%
-    mutate(across(-c(geoid, `Evictions per 1000 (2018)`, `Urban Rural Status`, state_name), ~ scale(.x) %>% as.vector)) %>% # Standardize all indicators (z-score) at the national level
+      state_name,
+      chas_years) %>%
+    mutate(across(-c(geoid, `Evictions per 1000 (2018)`, `Urban Rural Status`, state_name, chas_years), ~ scale(.x) %>% as.vector)) %>% # Standardize all indicators (z-score) at the national level
     mutate( ## Separate mutate statement because rowMeans can't access recoded variables within the same mutate statement
       housing_subindex = rowMeans(select(., `Median monthly housing cost`, `% Renter-occupied units`, `% Renter-occupied units in multi-unit structures`), na.rm = T),
       income_subindex = rowMeans(select(., `% Cost-burdened renter households`, `% Extremely low–income renters`), na.rm = T),

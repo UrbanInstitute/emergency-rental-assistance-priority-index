@@ -58,19 +58,22 @@ data_catalog_2023_acs <- read_csv(here("data", "comparison-data", "data_catalog_
 data_catalog_2021_a = data_catalog_2021_acs
 
 data_catalog_2021_b = here::here("data", "final-data", "data_catalog_index_outcome_year_2018_census_year_2021.csv") %>%
-  read_csv()
+  read_csv() %>% 
+  select(-chas_years)
 
-data_catalog_2022_a = file.path("C:", "Users", "wcurrangroome", "Box", "ERAP Update 2025", "Data Comparison", "data_catalog_index_outcome_year_2018_census_year_2022.csv") %>%
+data_catalog_2022_a = file.path("C:", "Users", "bchen", "Box", "ERAP Update 2025", "Data Comparison", "wcurrangroome-data-produced-in-2025", "data_catalog_index_outcome_year_2018_census_year_2022.csv") %>%
   read_csv()
 
 data_catalog_2022_b = here::here("data", "final-data", "data_catalog_index_outcome_year_2018_census_year_2022.csv") %>%
-  read_csv()
+  read_csv()%>% 
+  select(-chas_years)
 
-data_catalog_2023_a = file.path("C:", "Users", "wcurrangroome", "Box", "ERAP Update 2025", "Data Comparison", "data_catalog_index_outcome_year_2018_census_year_2023.csv") %>%
+data_catalog_2023_a = file.path("C:", "Users", "bchen", "Box", "ERAP Update 2025", "Data Comparison", "wcurrangroome-data-produced-in-2025", "data_catalog_index_outcome_year_2018_census_year_2023.csv") %>%
   read_csv()
 
 data_catalog_2023_b = here::here("data", "final-data", "data_catalog_index_outcome_year_2018_census_year_2023.csv") %>%
-  read_csv()
+  read_csv()%>% 
+  select(-chas_years)
 
 test_same_year_data = function(version1, version2) {
   result = left_join(
