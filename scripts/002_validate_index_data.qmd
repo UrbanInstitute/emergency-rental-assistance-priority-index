@@ -1,5 +1,5 @@
 ---
-title: "Compare 3.0 to 2.0"
+title: "Validate Datasets over Time and across Runs"
 format: 
   html:
     code-fold: true
@@ -13,8 +13,7 @@ execute:
 ---
 
 ## HEADER
-
--   **Description**: This script is used to compare the datafiles produced for the ERAP 3.0 update to those used in the 2.0 update.
+-   **Description**: This script is used to compare the datafiles produced for the ERAP 3.0 update to those used in the 2.0 update and to compare results from across runs to ensure that outputs are consistent/correct.
 -   **Original Author**: Brendan Chen
 -   **Date of Creation**: 10/05/2025
 
@@ -30,55 +29,15 @@ library(tidyverse)
 library(janitor)
 library(skimr)
 library(urbnthemes)
+
 options(scipen = 9999)
 options(tigris_use_cache = F)
-
-```
-
-```{r load in data}
-
-## Loading in original 2.0 data, 2.0 rerun data, and 3.0 data
-
-data_catalog_index_old <- read_csv(here("data", "comparison-data", "data_catalog_index_nonspatial.csv")) %>% 
-  select(-num_eli_renters)
-
-data_catalog_2021_acs <- read_csv(here("data", "comparison-data", "data_catalog_index_2.0_2025.csv")) %>% 
-  rename(hh_chars_subindex_value = hh_chars_value,
-         median_monthly_housing_cost = median_monthly_housing_coust)
-
-data_catalog_2023_acs <- read_csv(here("data", "comparison-data", "data_catalog_index_2025.csv")) %>% 
-  rename(hh_chars_subindex_value = hh_chars_value,
-         median_monthly_housing_cost = median_monthly_housing_coust)
-
-```
-
-```{r}
-## comparison of data across runs/computers/users
-
-data_catalog_2021_a = data_catalog_2021_acs
-
-data_catalog_2021_b = here::here("data", "final-data", "data_catalog_index_outcome_year_2018_census_year_2021.csv") %>%
-  read_csv() %>% 
-  select(-chas_years)
-
-data_catalog_2022_a = file.path("C:", "Users", "bchen", "Box", "ERAP Update 2025", "Data Comparison", "wcurrangroome-data-produced-in-2025", "data_catalog_index_outcome_year_2018_census_year_2022.csv") %>%
-  read_csv()
-
-data_catalog_2022_b = here::here("data", "final-data", "data_catalog_index_outcome_year_2018_census_year_2022.csv") %>%
-  read_csv()%>% 
-  select(-chas_years)
-
-data_catalog_2023_a = file.path("C:", "Users", "bchen", "Box", "ERAP Update 2025", "Data Comparison", "wcurrangroome-data-produced-in-2025", "data_catalog_index_outcome_year_2018_census_year_2023.csv") %>%
-  read_csv()
-
-data_catalog_2023_b = here::here("data", "final-data", "data_catalog_index_outcome_year_2018_census_year_2023.csv") %>%
-  read_csv()%>% 
-  select(-chas_years)
 
 test_same_year_data = function(version1, version2) {
   result = left_join(
       version1 %>% rename_with(.cols = -c(geoid, state_name, county_name), .fn = ~ str_c(.x, "version1")),
       version2 %>% rename_with(.cols = -c(geoid, state_name, county_name), .fn = ~ str_c(.x, "version2"))) %>%
+    select(-matches("chas_year")) %>%
     pivot_longer(
       cols = matches("version1$|version2$")) %>%
     mutate(
@@ -94,15 +53,47 @@ test_same_year_data = function(version1, version2) {
   return(result)
 }
 
+build_path = function(census_year, chas_year, username_remote) {
+  username_local = here::here() %>% str_split("\\/") %>% map_chr(3)
+  
+  path = file.path(
+    "C:", "Users", username_local, "Box", "ERAP Update 2025", "Data Comparison", 
+    str_c(username_remote, "-data-produced-in-2025"), str_c("data_catalog_index_outcome_year_2018_census_year_", 
+          census_year, "_chas_year_", chas_year, ".csv"))
+  
+  print(path)
+  
+  if (!file.exists(path)) stop("File does not exist.")
+  return(path)
+}
+```
+
+```{r load in data}
+data_catalog_index_old <- read_csv(here("data", "comparison-data", "data_catalog_index_nonspatial.csv")) %>% 
+  select(-num_eli_renters)
+
+data_catalog_2021_acs <- read_csv(here("data", "comparison-data", "data_catalog_index_2.0_2025.csv")) %>% 
+  rename(hh_chars_subindex_value = hh_chars_value,
+         median_monthly_housing_cost = median_monthly_housing_coust)
+
+data_catalog_2023_acs <- read_csv(here("data", "comparison-data", "data_catalog_index_2025.csv")) %>% 
+  rename(hh_chars_subindex_value = hh_chars_value,
+         median_monthly_housing_cost = median_monthly_housing_coust)
+
+## comparison of data across runs/computers/users
+data_catalog_2021_a = build_path(2021, "2015thru2019", "wcurrangroome") %>% read_csv()
+data_catalog_2021_b = build_path(2021, "2015thru2019", "bchen") %>% read_csv()
+data_catalog_2022_a = build_path(2022, "2017thru2021", "wcurrangroome") %>% read_csv()
+data_catalog_2022_b = build_path(2022, "2017thru2021", "bchen") %>% read_csv()
+data_catalog_2023_a = build_path(2023, "2017thru2021", "wcurrangroome") %>% read_csv()
+data_catalog_2023_b = build_path(2023, "2017thru2021", "bchen") %>% read_csv()
+
 test_same_year_data(data_catalog_2023_a, data_catalog_2023_b)
 test_same_year_data(data_catalog_2022_a, data_catalog_2022_b)
 test_same_year_data(data_catalog_2021_a, data_catalog_2021_b)
 ```
 
-
-
 ```{r}
-
 # Merge by geoid
 acs_2021_merged <- merge(
   data_catalog_index_old,
@@ -151,7 +142,6 @@ missing_old <- data_catalog_index_old %>%
   summarise(across(everything(), ~mean(is.na(.)))) %>% 
   pivot_longer(everything(), names_to = "variable", values_to = "missing_rate_old")
 
-
 missing_new <- data_catalog_2023_acs %>% 
   summarise(across(everything(), ~mean(is.na(.)))) %>% 
   pivot_longer(everything(), names_to = "variable", values_to = "missing_rate_new")
@@ -177,15 +167,10 @@ plot_list <- map(numeric_vars, function(var) {
     facet_wrap(~ source)
 })
 
-
-
 # export results
 write_csv(score_diff, "2021_acs_score_differences.csv")
-
 write_csv(missing_comparison, "2021_acs_missing_comparison.csv")
-
 write_csv(missing_comparison_year, "new_old_missing_comparison.csv")
-
 
 pdf("plots_output.pdf", width = 8, height = 6)  # Set PDF output file and dimensions
 

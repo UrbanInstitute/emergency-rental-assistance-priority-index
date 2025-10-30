@@ -80,9 +80,12 @@ get_wqs_scores = function(
       census_region = region,
       census_division = division)
   
-  ## Download the rural-urban commuting area codes, sourced from: https://www.ers.usda.gov/webdocs/DataFiles/53241/ruca2010revised.xlsx?v=3632.4
+  ## Download the rural-urban commuting area codes
   ruca_path = here("data", "raw-data", "ruca2010revised.xlsx") 
-  if (!file.exists(ruca_path)) { download.file("https://www.ers.usda.gov/webdocs/DataFiles/53241/ruca2010revised.xlsx?v=3632.4", ruca_path, mode = "wb") }
+  if (!file.exists(ruca_path)) { 
+    download.file(
+      "https://ers.usda.gov/sites/default/files/_laserfiche/DataFiles/53241/ruca2010revised.xlsx?v=14022", 
+      ruca_path, mode = "wb") }
   
   ## these are in 2010 geographies.
   ruca_raw = read_excel(ruca_path, sheet = "Data", skip = 1) %>%
