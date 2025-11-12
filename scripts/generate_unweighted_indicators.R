@@ -103,6 +103,23 @@ generate_unweighted_indicators = function(
   chas = get_chas_index_vars(chas_year = chas_year) %>% 
     mutate(chas_years = chas_year)
   
+  ## crosswalking tracts for Connecticut to adjust for 2022 GEOID changes
+  if(census_year > 2021 & (str_sub(chas_year, -4) < 2022)) {
+    
+    ## reading in crosswalk for CT tracts from 2022 on 
+    ct_crosswalk <- read_csv(file = here("data", "raw-data", "2022tractcrosswalk.csv")) %>% 
+      select(tract_fips_2020, Tract_fips_2022)
+    
+    chas <- chas %>% 
+      left_join(ct_crosswalk, by = c("GEOID" = "tract_fips_2020")) %>% 
+      mutate(GEOID = case_when(
+        !is.na(Tract_fips_2022) ~ Tract_fips_2022,
+        TRUE ~ GEOID
+      )) %>% 
+      select(-Tract_fips_2022)
+    
+  }
+  
   ####----Aligning Data across Different Geography Vintages----####
   
   ## this may need to be adjusted in future years if/when these datasets update to using 2020 geographies
@@ -125,7 +142,7 @@ generate_unweighted_indicators = function(
   ## whatever it's called, we select the name of it here (to rename as geoid in the subsequent step)
   geoid_col = str_extract(string = colnames(indicators_df), pattern = regex("geoid", ignore_case = T)) %>% .[!is.na(.)]
 
-  
+
   unweighted_indicators = indicators_df %>%
     select(
       geoid = all_of(geoid_col), 

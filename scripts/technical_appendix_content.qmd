@@ -253,7 +253,7 @@ set_urbn_defaults(style = "print")
 states <- fips_codes %>% filter(!state %in% c("PR", "UM", "VI", "GU", "AS", "MP")) %>% pull(state) %>% unique()
 tract_pops <- map_dfr(
   states, 
-  ~ get_acs(geography = 'tract', variables = 'B01003_001', state = .x))
+  ~ get_acs(geography = 'tract', year = 2021, variables = 'B01003_001', state = .x))
 
 tract_scores_by_state <- 
   left_join(
@@ -266,7 +266,7 @@ tract_scores_by_state <-
   filter(!is.na(`Evictions per 1000 (2018)`)) %>%
   select(geoid, state_name, state_abb = state.abb, population=estimate, `Evictions per 1000 (2018)`, `Total Index (Z-scored Percentile)`) %>%
   group_by(state_name) %>%
-  mutate(state_pop_pct = population / sum(population)) %>%
+  mutate(state_pop_pct = population / sum(population, na.rm = T)) %>%
   ungroup()
 
 # Correlation between index and evictions at state level with tracts weighted by population

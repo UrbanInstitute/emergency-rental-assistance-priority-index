@@ -51,8 +51,8 @@ create_folder(here("data", "final-data"))
 
 ```{r parameters}
 outcome_year = "2018"         # the year for which to pull outcome (evictions) data
-census_year = "2022"          # the year for which to pull Census data
-chas_year = "2017thru2021"                # the year for which to pull CHAS data
+census_year = "2023"          # the year for which to pull Census data
+chas_year = NA                # the year for which to pull CHAS data
 states = "default"            # 50 states and DC by default; optionally specify specific states
 geography = "tract"           # beta functionality. the geography for the index. "zcta" and "county" are alternate options.
 populated_geography_filter = TRUE           # filter out geographies without any residents if TRUE
@@ -87,7 +87,7 @@ if ( (outcome_year != census_year) ) {
   print("Generating a different outcome_index dataframe for calculating weights.")
   outcome_index = generate_unweighted_indicators(
     census_year = outcome_year,
-    chas_year = chas_year,   
+    chas_year = "2014thru2018",   
     states = states,    
     geography = geography,   
     populated_geography_filter = populated_geography_filter,  
@@ -223,7 +223,8 @@ data_catalog_index = final_indicator_index %>%
     state_name,
     county_name,
     chas_years,
-    matches("index.*z-score")) %>%
+    matches("index.*z-score"),
+    `Extremely Low-income Renters`) %>%
   rename(
     index_value = `Total Index (Z-scored Percentile)`,
     housing_subindex_value = `Housing Subindex (Z-scored Percentile)`,
@@ -252,6 +253,21 @@ metadata = tibble::tibble(
   outcome_year = outcome_year,
   indicator_index_weights = indicator_index_weights,
   outcome_index_weights = outcome_index_weights)
+
+
+data_catalog_for_review <- data_catalog_index %>% 
+  rename(total_erap_index = index_value,
+         housing_subindex = housing_subindex_value,
+         income_subindex = income_subindex_value,
+         h_characteristics_subindex = hh_chars_value,
+         median_monthly_housing_cost = median_monthly_housing_coust,
+         percent_renter_occupied_units = percent_renter_occ_units,
+         percent_renter_occupied_units_multi_unit = percent_renter_occ_units_multi,
+         percent_cost_burdened_renter_hhs = percent_cost_burdened_renters,
+         percent_eli = percent_eli_renters,
+         average_renter_hh_size = avg_renter_hh_size,
+         percent_hispanic = percent_latine,
+         eli_total = `Extremely Low-income Renters`)
 
 metadata %>%
   write_csv(here("data", "final-data", paste0("metadata_outcome_year_", outcome_year, "_census_year_", census_year, "_chas_year_", chas_year, ".csv")))
