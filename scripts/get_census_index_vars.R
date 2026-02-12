@@ -68,8 +68,8 @@ get_census_index_vars = function(
       renter_units_in_structure_denom = B25032_013E) %>% #renter units in structure denominator
     mutate(
       ## extracting geography identifiers
-      state_name = str_split(NAME, ",") %>% map_chr(function(x) x[3]) %>% str_trim,
-      county_name = str_split(NAME, ",") %>% map_chr(function(x) x[2]) %>% str_trim,
+      state_name = str_split(NAME, ",|;") %>% map_chr(function(x) x[3]) %>% str_trim,
+      county_name = str_split(NAME, ",|;") %>% map_chr(function(x) x[2]) %>% str_trim,
       state_fips = str_sub(GEOID, 1, 2),
       county_fips = str_sub(GEOID, 1, 5),
       

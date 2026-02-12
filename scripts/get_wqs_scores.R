@@ -80,9 +80,12 @@ get_wqs_scores = function(
       census_region = region,
       census_division = division)
   
-  ## Download the rural-urban commuting area codes, sourced from: https://www.ers.usda.gov/webdocs/DataFiles/53241/ruca2010revised.xlsx?v=3632.4
+  ## Download the rural-urban commuting area codes
   ruca_path = here("data", "raw-data", "ruca2010revised.xlsx") 
-  if (!file.exists(ruca_path)) { download.file("https://www.ers.usda.gov/webdocs/DataFiles/53241/ruca2010revised.xlsx?v=3632.4", ruca_path, mode = "wb") }
+  if (!file.exists(ruca_path)) { 
+    download.file(
+      "https://ers.usda.gov/sites/default/files/_laserfiche/DataFiles/53241/ruca2010revised.xlsx?v=14022", 
+      ruca_path, mode = "wb") }
   
   ## these are in 2010 geographies.
   ruca_raw = read_excel(ruca_path, sheet = "Data", skip = 1) %>%
@@ -130,7 +133,7 @@ get_wqs_scores = function(
       perc_evictions = (filings_2018 * 1000) / population_total,
       perc_evictions = if_else(population_total == 0, 0, perc_evictions),
       population = population_total,
-      `Evictions per 1000 (2018)` = DescTools::Winsorize(perc_evictions, minval = 0, na.rm = T), ## winsorizing; defaults to 95% quantile as upper threshold values
+      `Evictions per 1000 (2018)` = DescTools::Winsorize(perc_evictions, val = quantile(perc_evictions, probs = c(0, 0.95), na.rm = TRUE)), ## winsorizing; defaults to 95% quantile as upper threshold values
       `% Cost-burdened renter households` = perc_cb_under_35k,
       `% Black` = perc_race_black_nonhispanic,
       `% White` = perc_race_white_nonhispanic,
@@ -171,7 +174,8 @@ get_wqs_scores = function(
       `% Hispanic`,
       `% Other`,
       `Urban Rural Status`,
-      state_name)
+      state_name,
+      chas_years)
 
   unweighted_outcome_index = outcome_index %>% 
     left_join(census_regions %>% select(-state_abbreviation), by = "state_name") %>%
@@ -184,7 +188,7 @@ get_wqs_scores = function(
       perc_evictions = (filings_2018 * 1000) / population_total,
       perc_evictions = if_else(population_total == 0, 0, perc_evictions),
       population = population_total,
-      `Evictions per 1000 (2018)` = DescTools::Winsorize(perc_evictions, minval = 0, na.rm = T), ## winsorizing; defaults to 95% quantile as upper threshold values
+      `Evictions per 1000 (2018)` = DescTools::Winsorize(perc_evictions, val = quantile(perc_evictions, probs = c(0, 0.95), na.rm = TRUE)), ## winsorizing; defaults to 95% quantile as upper threshold values
       `% Cost-burdened renter households` = perc_cb_under_35k,
       `% Black` = perc_race_black_nonhispanic,
       `% White` = perc_race_white_nonhispanic,
@@ -219,8 +223,9 @@ get_wqs_scores = function(
       `% Hispanic`,
       `% Other`,
       `Urban Rural Status`,
-      state_name) %>%
-    mutate(across(-c(geoid, `Evictions per 1000 (2018)`, `Urban Rural Status`, state_name), ~ scale(.x) %>% as.vector)) %>% # Standardize all indicators (z-score) at the national level
+      state_name,
+      chas_years) %>%
+    mutate(across(-c(geoid, `Evictions per 1000 (2018)`, `Urban Rural Status`, state_name, chas_years), ~ scale(.x) %>% as.vector)) %>% # Standardize all indicators (z-score) at the national level
     mutate( ## Separate mutate statement because rowMeans can't access recoded variables within the same mutate statement
       housing_subindex = rowMeans(select(., `Median monthly housing cost`, `% Renter-occupied units`, `% Renter-occupied units in multi-unit structures`), na.rm = T),
       income_subindex = rowMeans(select(., `% Cost-burdened renter households`, `% Extremely low–income renters`), na.rm = T),

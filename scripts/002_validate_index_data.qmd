@@ -1,0 +1,182 @@
+---
+title: "Validate Datasets over Time and across Runs"
+format: 
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+execute:
+  echo: false
+  eval: true
+  include: true
+  message: false
+  warning: false
+---
+
+## HEADER
+-   **Description**: This script is used to compare the datafiles produced for the ERAP 3.0 update to those used in the 2.0 update and to compare results from across runs to ensure that outputs are consistent/correct.
+-   **Original Author**: Brendan Chen
+-   **Date of Creation**: 10/05/2025
+
+```{r dependencies}
+## libraries
+library(tidycensus)
+library(sf)
+library(readxl)
+library(tidycensus)
+library(tigris)
+library(here)
+library(tidyverse)
+library(janitor)
+library(skimr)
+library(urbnthemes)
+
+options(scipen = 9999)
+options(tigris_use_cache = F)
+
+test_same_year_data = function(version1, version2) {
+  result = left_join(
+      version1 %>% rename_with(.cols = -c(geoid, state_name, county_name), .fn = ~ str_c(.x, "version1")),
+      version2 %>% rename_with(.cols = -c(geoid, state_name, county_name), .fn = ~ str_c(.x, "version2"))) %>%
+    select(-matches("chas_year")) %>%
+    pivot_longer(
+      cols = matches("version1$|version2$")) %>%
+    mutate(
+      version = str_extract(name, "(version1$|version2$)"),
+      name = str_remove(name, "(version1$|version2$)")) %>%
+    pivot_wider(
+      names_from = version,
+      values_from = value) %>%
+    filter(version1 != version2)
+  
+  if (nrow(result) != 0) warning("The datasets are not identical")
+  
+  return(result)
+}
+
+build_path = function(census_year, chas_year, username_remote) {
+  username_local = here::here() %>% str_split("\\/") %>% map_chr(3)
+  
+  path = file.path(
+    "C:", "Users", username_local, "Box", "ERAP Update 2025", "Data Comparison", 
+    str_c(username_remote, "-data-produced-in-2025"), str_c("data_catalog_index_outcome_year_2018_census_year_", 
+          census_year, "_chas_year_", chas_year, ".csv"))
+  
+  print(path)
+  
+  if (!file.exists(path)) stop("File does not exist.")
+  return(path)
+}
+```
+
+```{r load in data}
+data_catalog_index_old <- read_csv(here("data", "comparison-data", "data_catalog_index_nonspatial.csv")) %>% 
+  select(-num_eli_renters)
+
+data_catalog_2021_acs <- read_csv(here("data", "comparison-data", "data_catalog_index_2.0_2025.csv")) %>% 
+  rename(hh_chars_subindex_value = hh_chars_value,
+         median_monthly_housing_cost = median_monthly_housing_coust)
+
+data_catalog_2023_acs <- read_csv(here("data", "comparison-data", "data_catalog_index_2025.csv")) %>% 
+  rename(hh_chars_subindex_value = hh_chars_value,
+         median_monthly_housing_cost = median_monthly_housing_coust)
+
+## comparison of data across runs/computers/users
+data_catalog_2021_a = build_path(2021, "2015thru2019", "wcurrangroome") %>% read_csv()
+data_catalog_2021_b = build_path(2021, "2015thru2019", "bchen") %>% read_csv()
+data_catalog_2022_a = build_path(2022, "2017thru2021", "wcurrangroome") %>% read_csv()
+data_catalog_2022_b = build_path(2022, "2017thru2021", "bchen") %>% read_csv()
+data_catalog_2023_a = build_path(2023, "2017thru2021", "wcurrangroome") %>% read_csv()
+data_catalog_2023_b = build_path(2023, "2017thru2021", "bchen") %>% read_csv()
+
+test_same_year_data(data_catalog_2023_a, data_catalog_2023_b)
+test_same_year_data(data_catalog_2022_a, data_catalog_2022_b)
+test_same_year_data(data_catalog_2021_a, data_catalog_2021_b)
+```
+
+```{r}
+# Merge by geoid
+acs_2021_merged <- merge(
+  data_catalog_index_old,
+  data_catalog_2021_acs,
+  by = "geoid",
+  suffixes = c("_old", "_new")
+)
+
+# Compare each common variable and create flag columns
+# Find the columns (excluding ID) that exist in both data frames
+common_cols <- intersect(
+  setdiff(names(data_catalog_index_old), "geoid"),
+  setdiff(names(data_catalog_2021_acs), "geoid")
+)
+
+# Create flags for columns that are different
+for (col in common_cols) {
+  old_col <- paste0(col, "_old")
+  new_col <- paste0(col, "_new")
+  flag_col <- paste0(col, "_flag")
+
+  acs_2021_merged[[flag_col]] <- as.integer(
+    acs_2021_merged[[old_col]] != acs_2021_merged[[new_col]]
+  )
+}
+
+# total how many columns differ between the two dfs
+acs_2021_merged$any_diff <- as.integer(rowSums(acs_2021_merged %>% select(ends_with("flag"))) > 0)
+
+# calculate what percentage of entries differ by variable
+diff_summary <- acs_2021_merged %>%
+  summarise(across(ends_with("flag"), ~mean(.x, na.rm = TRUE)))
+
+# calculate the number of entries by the size of differences in index_value
+score_diff <- acs_2021_merged %>%
+  mutate(index_diff = index_value_new - index_value_old) %>% 
+  select(geoid, state_name_old, county_name_old, index_value_old, index_value_new, index_diff) %>% 
+  filter(index_diff > 0) %>% 
+  count(index_diff)
+```
+
+```{r}
+## comparing 2023 acs df to original 2021acs df
+# Compare missingness
+missing_old <- data_catalog_index_old %>% 
+  summarise(across(everything(), ~mean(is.na(.)))) %>% 
+  pivot_longer(everything(), names_to = "variable", values_to = "missing_rate_old")
+
+missing_new <- data_catalog_2023_acs %>% 
+  summarise(across(everything(), ~mean(is.na(.)))) %>% 
+  pivot_longer(everything(), names_to = "variable", values_to = "missing_rate_new")
+
+missing_comparison_year <- full_join(missing_old, missing_new, by = "variable")
+
+# 2. Compare distributions for numeric variables
+numeric_vars <- data_catalog_index_old %>% select(where(is.numeric)) %>% names()
+
+data_catalog_index_old %>%
+  count(index_value, sort = TRUE)
+
+# Plot histograms side-by-side
+plot_list <- map(numeric_vars, function(var) {
+  combined <- bind_rows(
+    data_catalog_index_old %>% select(all_of(var)) %>% mutate(source = "data_catalog_index_old"),
+    data_catalog_2023_acs %>% select(all_of(var)) %>% mutate(source = "data_catalog_2023_acs")
+  )
+  
+  ggplot(combined, aes_string(x = var, fill = "source")) +
+    geom_histogram(alpha = 0.6, position = "identity", bins = 100) +
+    labs(title = paste("Distribution of", var), x = var, y = "Count") +
+    facet_wrap(~ source)
+})
+
+# export results
+write_csv(score_diff, "2021_acs_score_differences.csv")
+write_csv(missing_comparison, "2021_acs_missing_comparison.csv")
+write_csv(missing_comparison_year, "new_old_missing_comparison.csv")
+
+pdf("plots_output.pdf", width = 8, height = 6)  # Set PDF output file and dimensions
+
+for (plot in plot_list) {
+  print(plot)  # Print each plot to the PDF
+}
+
+dev.off() 
+```

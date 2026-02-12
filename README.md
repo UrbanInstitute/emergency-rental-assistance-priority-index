@@ -45,6 +45,8 @@ This project uses `library(renv)` to handle package dependencies. `library(renv)
 
         -   Another approach is to use the workflow below, again ensuring to omit `gWQS` from the list of packages to install / update. NOTE: This approach does not take note of any package version differences so use with care!
 
+        -   As of October 2025, we use **gWQS version 3.0.5**
+
         ```
         ## Load the jsonlite and renv packages 
         

@@ -54,7 +54,7 @@ generate_unweighted_indicators = function(
   
   census_max_year = check_max_census_year(tidycensus::load_variables(year = current_year, dataset = "acs5"))
 
-  chas_max_year = if ( current_month > 9 ) { chas_max_year = current_year - 3 } else { chas_max_year = current_year - 4 }
+  chas_max_year = current_year - 4 
   
   ## These all technically date back to 2009, but omitting this year as an option
   ## for the time being due to issues with changing tract geometries across the 
@@ -62,7 +62,7 @@ generate_unweighted_indicators = function(
   census_years_available = c(2010:census_max_year)
   chas_years_available = c(2010:chas_max_year)
   census_year = census_year %>% as.numeric
-  chas_year = chas_year %>% as.numeric
+  #chas_year = chas_year %>% as.numeric
   
   ## either pass in a specified list of states or use the default set 
   ## NOTE: this script has only been tested with the 50 states and DC
@@ -70,7 +70,7 @@ generate_unweighted_indicators = function(
   
   ## setting the years for each dataset in the case that the corresponding parameter is NA
   if ( is.na(chas_year) & (census_year > max(chas_years_available)) ) { 
-    chas_year = paste0( (census_year - 6) %>% as.character, "thru", (census_year - 2) %>% as.character ) 
+    chas_year = paste0( (chas_max_year - 4) %>% as.character, "thru", (chas_max_year) %>% as.character ) 
   } else if ( is.na(chas_year) ) {
     chas_year = paste0( (census_year - 4) %>% as.character, "thru", census_year %>% as.character )}
   
@@ -98,8 +98,27 @@ generate_unweighted_indicators = function(
       by = "GEOID") %>% 
     mutate(population_density = safe_divide(pba_population_denom, land_area))
   
+  
   ## Comprehensive Housing Affordability Strategy (CHAS) indicators
-  chas = get_chas_index_vars(chas_year = chas_year)
+  chas = get_chas_index_vars(chas_year = chas_year) %>% 
+    mutate(chas_years = chas_year)
+  
+  ## crosswalking tracts for Connecticut to adjust for 2022 GEOID changes
+  if(census_year > 2021 & (str_sub(chas_year, -4) < 2022)) {
+    
+    ## reading in crosswalk for CT tracts from 2022 on 
+    ct_crosswalk <- read_csv(file = here("data", "raw-data", "2022tractcrosswalk.csv")) %>% 
+      select(tract_fips_2020, Tract_fips_2022)
+    
+    chas <- chas %>% 
+      left_join(ct_crosswalk, by = c("GEOID" = "tract_fips_2020")) %>% 
+      mutate(GEOID = case_when(
+        !is.na(Tract_fips_2022) ~ Tract_fips_2022,
+        TRUE ~ GEOID
+      )) %>% 
+      select(-Tract_fips_2022)
+    
+  }
   
   ####----Aligning Data across Different Geography Vintages----####
   
@@ -123,6 +142,7 @@ generate_unweighted_indicators = function(
   ## whatever it's called, we select the name of it here (to rename as geoid in the subsequent step)
   geoid_col = str_extract(string = colnames(indicators_df), pattern = regex("geoid", ignore_case = T)) %>% .[!is.na(.)]
 
+
   unweighted_indicators = indicators_df %>%
     select(
       geoid = all_of(geoid_col), 
@@ -131,7 +151,8 @@ generate_unweighted_indicators = function(
       matches("^perc"),
       avg_household_size_renters,
       median_housing_cost,
-      renter_lessthanequal_30hamfi) %>%
+      renter_lessthanequal_30hamfi,
+      chas_years) %>%
     {if (populated_geography_filter == T) { filter(., !(is.na(population_total) | population_total == 0)) } else . } %>%
     {if (extremely_lowincome_renter_filter == T) { filter(., renter_lessthanequal_30hamfi > 0) } else . } %>%
     arrange(geoid)

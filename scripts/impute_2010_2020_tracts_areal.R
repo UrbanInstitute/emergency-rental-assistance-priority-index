@@ -61,7 +61,8 @@ impute_2010_2020_tracts_areal = function(df, df_geoid) {
   ## 3) multiply all count-based fields by perc_2010tractlandarea_in_2020tractlandarea, group_by 2020 tract GEOID, then summarise and sum to create
   ##    indicator values that are proportionally weighted by tract area
 
-  df_interpolated = relationships %>%
+  if ("chas_years" %in% colnames(df)){
+    df_interpolated = relationships %>%
     right_join(df, by = c("GEOID_TRACT_10" = df_geoid)) %>%
     select(-any_of("ruca_code_secondary")) %>%
     mutate(
@@ -69,9 +70,27 @@ impute_2010_2020_tracts_areal = function(df, df_geoid) {
         c(where(is.numeric), -matches("perc"), -matches(df_geoid)),
         ~ .x * perc_2010tractlandarea_in_2020tractlandarea)) %>%
     group_by(GEOID_TRACT_20) %>%
-    summarise(across(
+    summarise(
+      chas_years = first(chas_years),
+      across(
       c(where(is.numeric), -matches("perc"), -matches(df_geoid)),
       ~ sum(.x, na.rm = T)))
+  } else {
+    df_interpolated = relationships %>%
+      right_join(df, by = c("GEOID_TRACT_10" = df_geoid)) %>%
+      select(-any_of("ruca_code_secondary")) %>%
+      mutate(
+        across(
+          c(where(is.numeric), -matches("perc"), -matches(df_geoid)),
+          ~ .x * perc_2010tractlandarea_in_2020tractlandarea)) %>%
+      group_by(GEOID_TRACT_20) %>%
+      summarise(across(
+          c(where(is.numeric), -matches("perc"), -matches(df_geoid)),
+          ~ sum(.x, na.rm = T)))
+  }
+  
+  
+  
   
   if ("ruca_code_secondary" %in% colnames(df)) {
     ## In the case of ruca codes, we want to select the 2010 ruca code that accounts for the greatest portion of
@@ -94,6 +113,6 @@ impute_2010_2020_tracts_areal = function(df, df_geoid) {
     
     df_interpolated = df_interpolated %>% left_join(ruca_codes)
   } 
-  
+
   return(df_interpolated)
 }
